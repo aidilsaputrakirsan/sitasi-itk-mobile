@@ -35,12 +35,13 @@ export const StorageService = {
 
   // Theme management
   async saveTheme(isDark: boolean): Promise<void> {
-    await AsyncStorage.setItem(THEME_KEY, isDark.toString());
+    await AsyncStorage.setItem(THEME_KEY, JSON.stringify(isDark));
   },
 
-  async getTheme(): Promise<boolean> {
+  async getTheme(): Promise<boolean | null> {
     const theme = await AsyncStorage.getItem(THEME_KEY);
-    return theme === 'true';
+    if (theme === null) return null;
+    return JSON.parse(theme);
   },
 
   // Clear all data

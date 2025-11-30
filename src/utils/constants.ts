@@ -1,7 +1,7 @@
 // IMPORTANT: Replace with your laptop IP address!
 // Get IP with: ipconfig (Windows) or ifconfig (Mac/Linux)
-// Example: export const API_BASE_URL = 'http://192.168.1.100:8000/api/v1';
-export const API_BASE_URL = 'http://YOUR_IP_ADDRESS:8000/api/v1';
+// Current IP: 192.168.18.12
+export const API_BASE_URL = 'http://192.168.18.12:8000/api/v1';
 
 export const COLORS = {
   primary: '#003D82',      // ITK Navy Blue
