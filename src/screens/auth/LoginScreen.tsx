@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { TextInput, Button, Text, Snackbar, useTheme } from 'react-native-paper';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const LoginScreen = () => {
@@ -12,6 +13,22 @@ export const LoginScreen = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [snackbarVisible, setSnackbarVisible] = useState(false);
+
+  // Clear old AsyncStorage data on mount
+  useEffect(() => {
+    const clearOldData = async () => {
+      try {
+        const theme = await AsyncStorage.getItem('theme');
+        if (theme === 'true' || theme === 'false') {
+          console.log('Clearing old theme format...');
+          await AsyncStorage.removeItem('theme');
+        }
+      } catch (err) {
+        console.error('Error clearing old data:', err);
+      }
+    };
+    clearOldData();
+  }, []);
 
   const handleLogin = async () => {
     // Validation
