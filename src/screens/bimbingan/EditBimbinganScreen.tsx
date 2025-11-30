@@ -1,20 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Appbar, Snackbar, useTheme, Text } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { bimbinganService } from '../../services/bimbinganService';
 import { formatDateForApi } from '../../utils/dateFormatter';
-import { DatePickerModal } from 'react-native-paper-dates';
+import { DatePickerModal, id, registerTranslation } from 'react-native-paper-dates';
 import { parseISO } from 'date-fns';
 
 export const EditBimbinganScreen = () => {
   const theme = useTheme();
   const navigation = useNavigation();
   const route = useRoute<any>();
-  const { id, bimbingan } = route.params;
+  const { id: bimbinganId, bimbingan } = route.params;
 
   const [tanggal, setTanggal] = useState<Date>(parseISO(bimbingan.tanggal));
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Register Indonesian locale for date picker
+  useEffect(() => {
+    try {
+      registerTranslation('id', id);
+    } catch (error) {
+      console.log('Locale already registered or error:', error);
+    }
+  }, []);
   const [topik, setTopik] = useState(bimbingan.topik);
   const [keterangan, setKeterangan] = useState(bimbingan.keterangan);
   const [loading, setLoading] = useState(false);
@@ -47,7 +56,7 @@ export const EditBimbinganScreen = () => {
     setSuccess(false);
 
     try {
-      await bimbinganService.updateBimbingan(id, {
+      await bimbinganService.updateBimbingan(bimbinganId, {
         tanggal: formatDateForApi(tanggal),
         topik: topik.trim(),
         keterangan: keterangan.trim(),

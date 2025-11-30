@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { TextInput, Button, Appbar, Snackbar, useTheme, Text } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
 import { bimbinganService } from '../../services/bimbinganService';
 import { formatDateForApi } from '../../utils/dateFormatter';
-import { DatePickerModal } from 'react-native-paper-dates';
+import { DatePickerModal, id, registerTranslation } from 'react-native-paper-dates';
 
 export const CreateBimbinganScreen = () => {
   const theme = useTheme();
@@ -12,6 +12,15 @@ export const CreateBimbinganScreen = () => {
 
   const [tanggal, setTanggal] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Register Indonesian locale for date picker
+  useEffect(() => {
+    try {
+      registerTranslation('id', id);
+    } catch (error) {
+      console.log('Locale already registered or error:', error);
+    }
+  }, []);
   const [topik, setTopik] = useState('');
   const [keterangan, setKeterangan] = useState('');
   const [loading, setLoading] = useState(false);

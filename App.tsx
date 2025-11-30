@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { PaperProvider } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -7,23 +7,28 @@ import { ThemeProvider, useTheme as useAppTheme } from './src/contexts/ThemeCont
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { lightTheme } from './src/theme/lightTheme';
 import { darkTheme } from './src/theme/darkTheme';
-import { id, registerTranslation } from 'react-native-paper-dates';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Register Indonesian locale for date picker
-registerTranslation('id', id);
-
-// Clear old AsyncStorage data on app start (run once)
-AsyncStorage.getItem('theme').then((value) => {
-  if (value && (value === 'true' || value === 'false')) {
-    // Old string format detected, clear it
-    console.log('Clearing old theme format...');
-    AsyncStorage.removeItem('theme');
-  }
-});
+// NOTE: DatePickerModal locale will be registered when component is used
 
 function AppContent() {
   const { isDarkMode } = useAppTheme();
+
+  // Clear old AsyncStorage data on mount
+  useEffect(() => {
+    const clearOldData = async () => {
+      try {
+        const themeValue = await AsyncStorage.getItem('theme');
+        if (themeValue === 'true' || themeValue === 'false') {
+          console.log('Clearing old theme format...');
+          await AsyncStorage.removeItem('theme');
+        }
+      } catch (error) {
+        console.error('Error clearing old AsyncStorage:', error);
+      }
+    };
+    clearOldData();
+  }, []);
 
   return (
     <PaperProvider theme={isDarkMode ? darkTheme : lightTheme}>
