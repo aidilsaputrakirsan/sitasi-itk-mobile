@@ -1,20 +1,36 @@
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { PaperProvider } from 'react-native-paper';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider } from './src/contexts/AuthContext';
+import { ThemeProvider, useTheme as useAppTheme } from './src/contexts/ThemeContext';
+import { AppNavigator } from './src/navigation/AppNavigator';
+import { lightTheme } from './src/theme/lightTheme';
+import { darkTheme } from './src/theme/darkTheme';
+import { id, registerTranslation } from 'react-native-paper-dates';
 
-export default function App() {
+// Register Indonesian locale for date picker
+registerTranslation('id', id);
+
+function AppContent() {
+  const { isDarkMode } = useAppTheme();
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <PaperProvider theme={isDarkMode ? darkTheme : lightTheme}>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+          <AppNavigator />
+        </AuthProvider>
+      </SafeAreaProvider>
+    </PaperProvider>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
+  );
+}
