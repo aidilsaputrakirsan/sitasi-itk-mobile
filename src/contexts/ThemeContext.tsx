@@ -18,16 +18,21 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const loadTheme = async () => {
       try {
         const savedTheme = await StorageService.getTheme();
+        console.log('🔍 DEBUG - savedTheme from storage:', savedTheme, typeof savedTheme);
+
         if (savedTheme !== null) {
+          console.log('🔍 DEBUG - Setting isDarkMode to savedTheme:', savedTheme);
           setIsDarkMode(savedTheme);
         } else {
-          // If no saved preference, use system preference
-          setIsDarkMode(systemColorScheme === 'dark');
+          const systemValue = systemColorScheme === 'dark';
+          console.log('🔍 DEBUG - No saved theme, using system:', systemValue);
+          setIsDarkMode(systemValue);
         }
       } catch (error) {
         console.error('Failed to load theme:', error);
-        // Fallback to system preference on error
-        setIsDarkMode(systemColorScheme === 'dark');
+        const fallbackValue = systemColorScheme === 'dark';
+        console.log('🔍 DEBUG - Error, using fallback:', fallbackValue);
+        setIsDarkMode(fallbackValue);
       }
     };
 
@@ -36,9 +41,12 @@ export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const toggleTheme = async () => {
     const newTheme = !isDarkMode;
+    console.log('🔍 DEBUG - Toggle theme to:', newTheme, typeof newTheme);
     setIsDarkMode(newTheme);
     await StorageService.saveTheme(newTheme);
   };
+
+  console.log('🔍 DEBUG - ThemeContext rendering with isDarkMode:', isDarkMode, typeof isDarkMode);
 
   return (
     <ThemeContext.Provider value={{ isDarkMode, toggleTheme }}>
