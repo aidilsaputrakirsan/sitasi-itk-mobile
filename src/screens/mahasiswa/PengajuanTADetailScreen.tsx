@@ -5,13 +5,10 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import type { PengajuanTA } from '../../types';
-import type { RouteProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../navigation/types';
 
-interface Props {
-  route: RouteProp<{ PengajuanTADetail: { id: number } }, 'PengajuanTADetail'>;
-  navigation: NativeStackNavigationProp<Record<string, object | undefined>>;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'PengajuanTADetail'>;
 
 export function PengajuanTADetailScreen({ route, navigation }: Props) {
   const { id } = route.params;

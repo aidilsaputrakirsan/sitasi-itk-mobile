@@ -26,6 +26,7 @@ export type AdminTabParamList = {
 };
 
 export type RootStackParamList = {
+  Login: undefined;
   // Common
   MainTabs: undefined;
   Notifikasi: undefined;

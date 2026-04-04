@@ -4,11 +4,10 @@ import { katalogApi } from '../../api/endpoints/katalog';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import type { Katalog } from '../../types';
-import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../navigation/types';
 
-interface Props {
-  route: RouteProp<{ KatalogDetail: { id: number } }, 'KatalogDetail'>;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'KatalogDetail'>;
 
 export function KatalogDetailScreen({ route }: Props) {
   const { id } = route.params;

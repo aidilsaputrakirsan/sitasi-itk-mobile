@@ -31,7 +31,7 @@ export function KatalogScreen({ navigation }: Props) {
       const response = await katalogApi.list({
         page,
         per_page: 15,
-        search: searchQuery ?? search || undefined,
+        search: searchQuery ?? (search || undefined),
       });
       if (response.data.success) {
         setItems(append ? (prev) => [...prev, ...response.data.data] : response.data.data);

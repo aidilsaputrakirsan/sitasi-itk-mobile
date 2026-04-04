@@ -11,14 +11,11 @@ import {
 } from 'react-native';
 import { bimbinganApi } from '../../api/endpoints/bimbingan';
 import { usersApi } from '../../api/endpoints/users';
-import type { Bimbingan, AvailableDosen } from '../../types';
-import type { RouteProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AvailableDosen } from '../../types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../navigation/types';
 
-interface Props {
-  route: RouteProp<{ BimbinganForm: { id?: number; data?: Bimbingan } }, 'BimbinganForm'>;
-  navigation: NativeStackNavigationProp<Record<string, object | undefined>>;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'BimbinganForm'>;
 
 export function BimbinganFormScreen({ route, navigation }: Props) {
   const editData = route.params?.data;

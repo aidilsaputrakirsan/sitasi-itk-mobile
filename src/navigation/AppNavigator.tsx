@@ -1,6 +1,7 @@
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../stores/authStore';
+import type { RootStackParamList } from './types';
 
 // Auth
 import { LoginScreen } from '../screens/auth/LoginScreen';
@@ -41,7 +42,7 @@ import { KatalogAdminScreen } from '../screens/admin/KatalogAdminScreen';
 
 import { LoadingScreen } from '../components/ui/LoadingScreen';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function MainTabs() {
   const getPrimaryRole = useAuthStore((s) => s.getPrimaryRole);

@@ -5,13 +5,10 @@ import { StatusBadge } from '../../components/ui/StatusBadge';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import type { Bimbingan } from '../../types';
-import type { RouteProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../navigation/types';
 
-interface Props {
-  route: RouteProp<{ BimbinganDetail: { id: number } }, 'BimbinganDetail'>;
-  navigation: NativeStackNavigationProp<Record<string, object | undefined>>;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'BimbinganDetail'>;
 
 export function BimbinganDetailScreen({ route, navigation }: Props) {
   const { id } = route.params;

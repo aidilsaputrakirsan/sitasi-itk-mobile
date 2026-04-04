@@ -10,14 +10,11 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { pengajuanTAApi } from '../../api/endpoints/pengajuanTA';
-import type { AvailableDosen, PengajuanTA } from '../../types';
-import type { RouteProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AvailableDosen } from '../../types';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../navigation/types';
 
-interface Props {
-  route: RouteProp<{ PengajuanTAForm: { id?: number; data?: PengajuanTA } }, 'PengajuanTAForm'>;
-  navigation: NativeStackNavigationProp<Record<string, object | undefined>>;
-}
+type Props = NativeStackScreenProps<RootStackParamList, 'PengajuanTAForm'>;
 
 export function PengajuanTAFormScreen({ route, navigation }: Props) {
   const editData = route.params?.data;
