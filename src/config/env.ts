@@ -4,8 +4,8 @@ const ENV = {
     API_BASE_URL_IOS: 'http://127.0.0.1:8000/api/v1',
   },
   production: {
-    API_BASE_URL: 'https://sitasi.itk.ac.id/api/v1',
-    API_BASE_URL_IOS: 'https://sitasi.itk.ac.id/api/v1',
+    API_BASE_URL: 'https://sitasi-itk.myst-tech.com/api/v1',
+    API_BASE_URL_IOS: 'https://sitasi-itk.myst-tech.com/api/v1',
   },
 };
 
