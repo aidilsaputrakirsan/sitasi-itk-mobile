@@ -36,6 +36,7 @@ import { SidangDosenScreen } from '../screens/dosen/SidangDosenScreen';
 
 // Admin screens
 import { UserManagementScreen } from '../screens/admin/UserManagementScreen';
+import { UserDetailScreen } from '../screens/admin/UserDetailScreen';
 import { PeriodeScreen } from '../screens/admin/PeriodeScreen';
 import { JadwalAdminScreen } from '../screens/admin/JadwalAdminScreen';
 import { KatalogAdminScreen } from '../screens/admin/KatalogAdminScreen';
@@ -63,7 +64,9 @@ function MainTabs() {
 export function AppNavigator() {
   const { isAuthenticated, isLoading } = useAuthStore();
 
-  if (isLoading) return <LoadingScreen />;
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <Stack.Navigator
@@ -71,7 +74,8 @@ export function AppNavigator() {
         headerStyle: { backgroundColor: '#0066CC' },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: '600' },
-        headerBackTitle: 'Kembali',
+        contentStyle: { backgroundColor: '#fff' },
+        animation: 'slide_from_right',
       }}
     >
       {!isAuthenticated ? (
@@ -113,6 +117,7 @@ export function AppNavigator() {
 
           {/* Admin */}
           <Stack.Screen name="UserManagement" component={UserManagementScreen} options={{ title: 'Kelola User' }} />
+          <Stack.Screen name="UserDetail" component={UserDetailScreen} options={{ title: 'Detail User' }} />
           <Stack.Screen name="Periode" component={PeriodeScreen} options={{ title: 'Periode' }} />
           <Stack.Screen name="JadwalAdmin" component={JadwalAdminScreen} options={{ title: 'Kelola Jadwal' }} />
           <Stack.Screen name="KatalogAdmin" component={KatalogAdminScreen} options={{ title: 'Kelola Katalog' }} />

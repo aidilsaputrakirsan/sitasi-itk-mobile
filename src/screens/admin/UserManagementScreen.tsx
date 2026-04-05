@@ -52,8 +52,14 @@ export function UserManagementScreen({ navigation }: Props) {
     setLoadingMore(true); fetchData(meta.current_page + 1, true);
   };
 
+  /**
+   * Handles the deletion of a user with confirmation dialog
+   * @param id - The unique identifier of the user to be deleted
+   * @param name - The name of the user to be deleted
+   */
   const handleDelete = (id: number, name: string) => {
-    Alert.alert('Hapus User', `Hapus user "${name}"?`, [
+    // Show confirmation alert dialog
+    Alert.alert('Hapus User', `Hapus user "${name}"?`, [ // Cancel button
       { text: 'Batal', style: 'cancel' },
       {
         text: 'Hapus', style: 'destructive', onPress: async () => {

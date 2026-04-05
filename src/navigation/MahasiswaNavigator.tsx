@@ -1,20 +1,23 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text } from 'react-native';
+import { View, Text } from 'react-native';
 import { DashboardScreen } from '../screens/common/DashboardScreen';
 import { BimbinganScreen } from '../screens/mahasiswa/BimbinganScreen';
 import { SemproScreen } from '../screens/mahasiswa/SemproScreen';
 import { ProfileScreen } from '../screens/common/ProfileScreen';
 import { useNotificationCount } from '../hooks/useNotification';
+import { CustomTabBar } from '../components/ui/CustomTabBar';
 import type { MahasiswaTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<MahasiswaTabParamList>();
 
-function TabIcon({ label, focused }: { label: string; focused: boolean }) {
+function TabIcon({ label, color }: { label: string; color: string }) {
   return (
-    <Text style={{ fontSize: 11, color: focused ? '#0066CC' : '#999', fontWeight: focused ? '700' : '400' }}>
-      {label}
-    </Text>
+    <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ fontSize: 20, color, fontWeight: '700' }}>
+        {label}
+      </Text>
+    </View>
   );
 }
 
@@ -23,11 +26,9 @@ export function MahasiswaNavigator() {
 
   return (
     <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
-        tabBarActiveTintColor: '#0066CC',
-        tabBarInactiveTintColor: '#999',
         headerShown: false,
-        tabBarStyle: { paddingTop: 4, height: 56 },
       }}
     >
       <Tab.Screen
@@ -35,7 +36,7 @@ export function MahasiswaNavigator() {
         component={DashboardScreen}
         options={{
           tabBarLabel: 'Dashboard',
-          tabBarIcon: ({ focused }) => <TabIcon label="D" focused={focused} />,
+          tabBarIcon: ({ color }) => <TabIcon label="🏠" color={color} />,
           tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
         }}
       />
@@ -44,7 +45,7 @@ export function MahasiswaNavigator() {
         component={BimbinganScreen}
         options={{
           tabBarLabel: 'Bimbingan',
-          tabBarIcon: ({ focused }) => <TabIcon label="B" focused={focused} />,
+          tabBarIcon: ({ color }) => <TabIcon label="📋" color={color} />,
         }}
       />
       <Tab.Screen
@@ -52,7 +53,7 @@ export function MahasiswaNavigator() {
         component={SemproScreen}
         options={{
           tabBarLabel: 'Akademik',
-          tabBarIcon: ({ focused }) => <TabIcon label="A" focused={focused} />,
+          tabBarIcon: ({ color }) => <TabIcon label="🎓" color={color} />,
         }}
       />
       <Tab.Screen
@@ -60,7 +61,7 @@ export function MahasiswaNavigator() {
         component={ProfileScreen}
         options={{
           tabBarLabel: 'Profil',
-          tabBarIcon: ({ focused }) => <TabIcon label="P" focused={focused} />,
+          tabBarIcon: ({ color }) => <TabIcon label="👤" color={color} />,
         }}
       />
     </Tab.Navigator>
