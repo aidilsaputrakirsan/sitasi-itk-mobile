@@ -33,6 +33,7 @@ import { BimbinganDosenScreen } from '../screens/dosen/BimbinganDosenScreen';
 import { PengajuanDosenScreen } from '../screens/dosen/PengajuanDosenScreen';
 import { SemproDosenScreen } from '../screens/dosen/SemproDosenScreen';
 import { SidangDosenScreen } from '../screens/dosen/SidangDosenScreen';
+import { PenilaianFormScreen } from '../screens/dosen/PenilaianFormScreen';
 
 // Admin screens
 import { UserManagementScreen } from '../screens/admin/UserManagementScreen';
@@ -114,6 +115,7 @@ export function AppNavigator() {
           <Stack.Screen name="PengajuanDosen" component={PengajuanDosenScreen} options={{ title: 'Pengajuan TA' }} />
           <Stack.Screen name="SemproDosen" component={SemproDosenScreen} options={{ title: 'Sempro' }} />
           <Stack.Screen name="SidangDosen" component={SidangDosenScreen} options={{ title: 'Sidang' }} />
+          <Stack.Screen name="PenilaianForm" component={PenilaianFormScreen} options={{ title: 'Beri Nilai' }} />
 
           {/* Admin */}
           <Stack.Screen name="UserManagement" component={UserManagementScreen} options={{ title: 'Kelola User' }} />

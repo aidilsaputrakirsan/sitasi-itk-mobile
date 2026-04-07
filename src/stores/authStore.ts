@@ -142,11 +142,13 @@ export const useAuthStore = create<AuthState>((set, get) => {
     getPrimaryRole: () => {
       const roles = get().user?.roles;
       if (!roles?.length) return null;
-      // Priority: koorpro > tendik > dosen > mahasiswa
+      // Priority HARUS sama dengan backend DashboardController::index():
+      // mahasiswa → dosen → koorpro/tendik. Kalau urutan beda, payload
+      // dashboard tidak match shape yang dirender → crash di runtime.
+      if (roles.includes('mahasiswa')) return 'mahasiswa';
+      if (roles.includes('dosen')) return 'dosen';
       if (roles.includes('koorpro')) return 'koorpro';
       if (roles.includes('tendik')) return 'tendik';
-      if (roles.includes('dosen')) return 'dosen';
-      if (roles.includes('mahasiswa')) return 'mahasiswa';
       return null;
     },
   };

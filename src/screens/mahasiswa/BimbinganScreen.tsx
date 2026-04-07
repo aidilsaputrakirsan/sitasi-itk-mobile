@@ -80,7 +80,7 @@ export function BimbinganScreen({ navigation }: Props) {
               </Text>
               <StatusBadge status={item.status} />
             </View>
-            {item.dosen && <Text style={styles.cardDosen}>Dosen: {item.dosen.nama}</Text>}
+            {item.dosen && <Text style={styles.cardDosen}>Dosen: {item.dosen.name}</Text>}
             <Text style={styles.cardKet} numberOfLines={2}>{item.ket_bimbingan}</Text>
           </TouchableOpacity>
         )}

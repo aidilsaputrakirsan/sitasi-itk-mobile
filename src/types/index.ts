@@ -105,14 +105,22 @@ export interface ValidationErrorResponse {
 
 export type BimbinganStatus = 'created' | 'approved' | 'rejected';
 
+/**
+ * Backend BimbinganResource:
+ *   'mahasiswa' = UserResource(whenLoaded('user'))  → punya `name`, `nim`
+ *   'dosen'     = UserResource(whenLoaded('dosenUser')) → punya `name`
+ * Jadi inner field-nya `name`, BUKAN `nama`.
+ */
 export interface Bimbingan {
   id: number;
   tanggal: string;
   ket_bimbingan: string;
   hasil_bimbingan?: string;
   status: BimbinganStatus;
-  mahasiswa?: { id: number; nama: string; nim: string };
-  dosen?: { id: number; nama: string };
+  user_id?: number;
+  dosen_id?: number;
+  mahasiswa?: { id: number; name: string; nim?: string; email?: string };
+  dosen?: { id: number; name: string; email?: string };
   created_at: string;
   updated_at: string;
 }
@@ -160,16 +168,29 @@ export interface AvailableDosen {
 
 export type SemproStatus = 'on_process' | 'approved' | 'rejected' | 'revision' | 'scheduled';
 
+/**
+ * Backend SemproResource — field aktual yang dikirim API:
+ *   'user'  = UserResource(whenLoaded('user'))   ← mahasiswa pemilik sempro
+ *   'periode' = PeriodeResource
+ *   revisi/approve disimpan sebagai datetime; null = belum, ada nilai = sudah.
+ * Tidak ada field `mahasiswa`, `pembimbing_1`, `penguji_1`, dst pada response list.
+ */
 export interface Sempro {
   id: number;
+  tanggal?: string;
   status: SemproStatus;
-  mahasiswa?: { id: number; nama: string; nim: string };
-  pembimbing_1?: { id: number; nama: string };
-  pembimbing_2?: { id: number; nama: string };
-  penguji_1?: { id: number; nama: string };
-  penguji_2?: { id: number; nama: string };
-  jadwal?: JadwalSempro;
-  revisi_status?: Record<string, boolean>;
+  hasil_sempro?: string;
+  user_id?: number;
+  user?: { id: number; name: string; nim?: string; email?: string };
+  periode_id?: number;
+  periode?: Periode;
+  // datetime|null — truthy berarti sudah dilakukan
+  revisi_pembimbing_1?: string | null;
+  revisi_pembimbing_2?: string | null;
+  revisi_penguji_1?: string | null;
+  revisi_penguji_2?: string | null;
+  approve_pembimbing_1?: string | null;
+  approve_pembimbing_2?: string | null;
   form_ta_012?: string;
   bukti_plagiasi?: string;
   proposal_ta?: string;
@@ -187,16 +208,23 @@ export interface SemproRegistrationFiles {
 
 export type SidangStatus = 'on_process' | 'Diterima' | 'Ditolak' | 'revision' | 'scheduled';
 
+/**
+ * Backend SidangTAResource — sama bentuk dengan SemproResource:
+ *   'user' = UserResource(whenLoaded('user'))
+ *   'periode' = PeriodeResource
+ */
 export interface Sidang {
   id: number;
+  tanggal?: string;
   status: SidangStatus;
-  mahasiswa?: { id: number; nama: string; nim: string };
-  pembimbing_1?: { id: number; nama: string };
-  pembimbing_2?: { id: number; nama: string };
-  penguji_1?: { id: number; nama: string };
-  penguji_2?: { id: number; nama: string };
-  jadwal?: JadwalSidang;
-  revisi_status?: Record<string, boolean>;
+  user_id?: number;
+  user?: { id: number; name: string; nim?: string; email?: string };
+  periode_id?: number;
+  periode?: Periode;
+  revisi_pembimbing_1?: string | null;
+  revisi_pembimbing_2?: string | null;
+  revisi_penguji_1?: string | null;
+  revisi_penguji_2?: string | null;
   lembar_revisi?: string;
   draft_ta?: string;
   bukti_plagiasi?: string;
@@ -237,29 +265,123 @@ export interface MySchedule {
   sidang: JadwalSidang[];
 }
 
+// ==================== Penilaian (Dosen input nilai) ====================
+
+export type PenilaianRole = 'pembimbing_1' | 'pembimbing_2' | 'penguji_1' | 'penguji_2';
+
+/** Form fields untuk submit penilaian Sempro (10 sub-komponen, 3 kriteria) */
+export interface PenilaianSemproForm {
+  // Kriteria I - Penulisan (15%)
+  struktur_sistematika: number;
+  kepatuhan_format: number;
+  // Kriteria II - Pemaparan (30%)
+  media_presentasi: number;
+  komunikasi_verbal: number;
+  komunikasi_nonverbal: number;
+  // Kriteria III - Substansi (55%)
+  pemahaman_materi: number;
+  rumusan_masalah: number;
+  relevansi_metode: number;
+  kelayakan_rencana: number;
+  relevansi_luaran: number;
+}
+
+/** Form fields untuk submit penilaian Sidang (12 sub-komponen, 4 kriteria) */
+export interface PenilaianSidangForm extends PenilaianSemproForm {
+  // Kriteria IV - Profesionalisme (15%) - khusus pembimbing
+  etika_komunikasi: number;
+  kemandirian_daya_juang: number;
+}
+
+/** Response detail satu penilaian (dari endpoint GET) */
+export interface PenilaianSemproDetail extends PenilaianSemproForm {
+  id: number;
+  sempro_id: number;
+  user_id: number;
+  nilai_kriteria_1: number;
+  nilai_kriteria_2: number;
+  nilai_kriteria_3: number;
+  total_nilai: number;
+  updated_at?: string;
+  penilai?: { id: number; nama: string };
+}
+
+export interface PenilaianSidangDetail extends PenilaianSidangForm {
+  id: number;
+  sidang_ta_id: number;
+  user_id: number;
+  nilai_kriteria_1: number;
+  nilai_kriteria_2: number;
+  nilai_kriteria_3: number;
+  nilai_kriteria_4: number | null;
+  total_nilai: number;
+  updated_at?: string;
+  is_pembimbing?: boolean;
+  penilai?: { id: number; nama: string };
+}
+
+/** Response /api/v1/penilaian/sempro/{id} */
+export interface PenilaianSemproShowResponse {
+  sempro: {
+    id: number;
+    status: string;
+    periode?: string;
+    mahasiswa: { id: number | null; nama: string; nim: string | null };
+    judul?: string;
+  };
+  my_role: PenilaianRole;
+  periode_aktif: boolean;
+  my_nilai: PenilaianSemproDetail | null;
+  all_nilai: PenilaianSemproDetail[];
+}
+
+/** Response /api/v1/penilaian/sidang/{id} */
+export interface PenilaianSidangShowResponse {
+  sidang: {
+    id: number;
+    status: string;
+    periode?: string;
+    mahasiswa: { id: number | null; nama: string; nim: string | null };
+    judul?: string;
+  };
+  my_role: PenilaianRole;
+  is_pembimbing: boolean;
+  periode_aktif: boolean;
+  my_nilai: PenilaianSidangDetail | null;
+  all_nilai: PenilaianSidangDetail[];
+}
+
 // ==================== Periode ====================
 
-export type PeriodeType = 'sempro' | 'sidang';
-export type PeriodeStatus = 'active' | 'inactive';
+// Backend menyimpan type & status dengan casing aslinya (lihat PeriodeResource).
+export type PeriodeType = 'Sempro' | 'Seminar Proposal' | 'TA' | 'Sidang TA';
+export type PeriodeStatus = 'Active' | 'Inactive';
 
+/**
+ * Sesuai backend PeriodeResource — field yang benar adalah `periode` (nama
+ * periode, mis. "Genap 2024/2025"), `semester`, `gelombang`. Tidak ada
+ * `nama`/`tanggal_mulai`/`tanggal_selesai` di response API.
+ */
 export interface Periode {
   id: number;
-  nama: string;
+  semester?: string;
+  periode?: string;
+  gelombang?: string;
   type: PeriodeType;
   status: PeriodeStatus;
-  tanggal_mulai: string;
-  tanggal_selesai: string;
-  is_tampilkan: boolean;
-  created_at: string;
-  updated_at: string;
+  is_tampilkan?: boolean;
+  jadwal_sempro_count?: number;
+  jadwal_ta_count?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface PeriodeRequest {
-  nama: string;
+  semester?: string;
+  periode?: string;
+  gelombang?: string;
   type: PeriodeType;
   status?: PeriodeStatus;
-  tanggal_mulai: string;
-  tanggal_selesai: string;
   is_tampilkan?: boolean;
 }
 

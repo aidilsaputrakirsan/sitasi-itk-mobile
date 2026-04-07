@@ -51,6 +51,7 @@ export type RootStackParamList = {
   SemproDosen: undefined;
   SemproDosenDetail: { id: number };
   SidangDosen: undefined;
+  PenilaianForm: { type: 'sempro' | 'sidang'; targetId: number; mahasiswaName?: string };
 
   // Admin
   UserManagement: undefined;

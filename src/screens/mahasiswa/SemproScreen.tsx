@@ -104,34 +104,32 @@ export function SemproScreen() {
               <Text style={styles.label}>Status</Text>
               <StatusBadge status={data.status} />
             </View>
-            {data.pembimbing_1 && <InfoRow label="Pembimbing 1" value={data.pembimbing_1.nama} />}
-            {data.pembimbing_2 && <InfoRow label="Pembimbing 2" value={data.pembimbing_2.nama} />}
-            {data.penguji_1 && <InfoRow label="Penguji 1" value={data.penguji_1.nama} />}
-            {data.penguji_2 && <InfoRow label="Penguji 2" value={data.penguji_2.nama} />}
+            {data.periode?.periode && (
+              <InfoRow label="Periode" value={data.periode.periode} />
+            )}
+            {data.hasil_sempro && <InfoRow label="Hasil" value={data.hasil_sempro} />}
           </View>
-          {data.jadwal && (
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Jadwal</Text>
-              <Text style={styles.value}>
-                {new Date(data.jadwal.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-              </Text>
-              <Text style={styles.value}>{data.jadwal.waktu_mulai} - {data.jadwal.waktu_selesai}</Text>
-              {data.jadwal.ruangan && <Text style={styles.value}>Ruangan: {data.jadwal.ruangan}</Text>}
-            </View>
-          )}
-          {data.revisi_status && (
-            <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Status Revisi</Text>
-              {Object.entries(data.revisi_status).map(([role, done]) => (
+
+          {/* Status revisi diturunkan dari field datetime di backend */}
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Status Revisi</Text>
+            {([
+              ['pembimbing_1', data.revisi_pembimbing_1],
+              ['pembimbing_2', data.revisi_pembimbing_2],
+              ['penguji_1', data.revisi_penguji_1],
+              ['penguji_2', data.revisi_penguji_2],
+            ] as const).map(([role, value]) => {
+              const done = !!value;
+              return (
                 <View key={role} style={styles.revisiRow}>
                   <Text style={styles.label}>{role.replace(/_/g, ' ')}</Text>
                   <Text style={[styles.revisiStatus, { color: done ? '#2E7D32' : '#E65100' }]}>
                     {done ? 'Selesai' : 'Belum'}
                   </Text>
                 </View>
-              ))}
-            </View>
-          )}
+              );
+            })}
+          </View>
         </>
       ) : null}
     </ScrollView>

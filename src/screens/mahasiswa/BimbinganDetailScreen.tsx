@@ -60,7 +60,7 @@ export function BimbinganDetailScreen({ route, navigation }: Props) {
         {data.dosen && (
           <View style={styles.row}>
             <Text style={styles.label}>Dosen</Text>
-            <Text style={styles.value}>{data.dosen.nama}</Text>
+            <Text style={styles.value}>{data.dosen.name}</Text>
           </View>
         )}
       </View>
