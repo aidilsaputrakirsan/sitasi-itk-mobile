@@ -7,9 +7,26 @@ import type {
   PenilaianSidangDetail,
   PenilaianSidangForm,
   PenilaianSidangShowResponse,
+  PenilaianListItemSempro,
+  PenilaianListItemSidang,
+  PenilaianListType,
 } from '../../types';
 
 export const penilaianApi = {
+  /** List sempro untuk dosen (filtered: hanya bimbingan/uji-nya) dengan label role per item */
+  listSempro(type: PenilaianListType = 'all') {
+    return api.get<ApiResponse<PenilaianListItemSempro[]>>('/penilaian/sempro', {
+      params: { type },
+    });
+  },
+
+  /** List sidang untuk dosen (filtered) dengan label role per item */
+  listSidang(type: PenilaianListType = 'all') {
+    return api.get<ApiResponse<PenilaianListItemSidang[]>>('/penilaian/sidang', {
+      params: { type },
+    });
+  },
+
   /** GET nilai sempro: status periode, role saya, nilai saya, & nilai semua penilai */
   showSempro(semproId: number) {
     return api.get<ApiResponse<PenilaianSemproShowResponse>>(

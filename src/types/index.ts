@@ -351,6 +351,27 @@ export interface PenilaianSidangShowResponse {
   all_nilai: PenilaianSidangDetail[];
 }
 
+// ==================== Penilaian list (filter by dosen role) ====================
+
+export type PenilaianListType = 'all' | 'bimbingan' | 'uji';
+
+/**
+ * Item dari GET /api/v1/penilaian/sempro — Sempro yang relevan dengan dosen
+ * (bimbingan/uji-nya), dilengkapi `my_role` agar mobile bisa render badge.
+ */
+export interface PenilaianListItemSempro extends Sempro {
+  my_role: PenilaianRole;
+  my_role_label: string;
+  is_pembimbing: boolean;
+}
+
+/** Item dari GET /api/v1/penilaian/sidang */
+export interface PenilaianListItemSidang extends Sidang {
+  my_role: PenilaianRole;
+  my_role_label: string;
+  is_pembimbing: boolean;
+}
+
 // ==================== Periode ====================
 
 // Backend menyimpan type & status dengan casing aslinya (lihat PeriodeResource).

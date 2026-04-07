@@ -9,10 +9,11 @@ import {
   Alert,
 } from 'react-native';
 import { sidangApi } from '../../api/endpoints/sidang';
+import { penilaianApi } from '../../api/endpoints/penilaian';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { EmptyState } from '../../components/ui/EmptyState';
-import type { Sidang, PaginationMeta } from '../../types';
+import type { PenilaianListItemSidang, PenilaianListType } from '../../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 
@@ -21,11 +22,16 @@ interface Props {
 }
 
 type RevisiRole = 'pembimbing_1' | 'pembimbing_2' | 'penguji_1' | 'penguji_2';
-const REVISI_ROLES: { key: RevisiRole; label: string; field: keyof Sidang }[] = [
-  { key: 'pembimbing_1', label: 'Pembimbing 1', field: 'revisi_pembimbing_1' },
-  { key: 'pembimbing_2', label: 'Pembimbing 2', field: 'revisi_pembimbing_2' },
-  { key: 'penguji_1', label: 'Penguji 1', field: 'revisi_penguji_1' },
-  { key: 'penguji_2', label: 'Penguji 2', field: 'revisi_penguji_2' },
+
+/** Field revisi pada sidang yang sesuai dengan role dosen yang sedang login */
+function revisiFieldFor(role: RevisiRole): keyof PenilaianListItemSidang {
+  return `revisi_${role}` as keyof PenilaianListItemSidang;
+}
+
+const FILTER_TABS: { key: PenilaianListType; label: string }[] = [
+  { key: 'all', label: 'Semua' },
+  { key: 'bimbingan', label: 'Bimbingan' },
+  { key: 'uji', label: 'Menguji' },
 ];
 
 function formatTanggal(iso?: string): string {
@@ -40,45 +46,42 @@ function formatTanggal(iso?: string): string {
 }
 
 export function SidangDosenScreen({ navigation }: Props) {
-  const [items, setItems] = useState<Sidang[]>([]);
-  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [items, setItems] = useState<PenilaianListItemSidang[]>([]);
+  const [filter, setFilter] = useState<PenilaianListType>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
 
-  const fetchData = useCallback(async (page = 1, append = false) => {
+  const fetchData = useCallback(async (type: PenilaianListType) => {
     try {
-      const response = await sidangApi.list({ page, per_page: 15 });
+      const response = await penilaianApi.listSidang(type);
       if (response.data.success) {
-        setItems(append ? (prev) => [...prev, ...response.data.data] : response.data.data);
-        setMeta(response.data.meta);
+        setItems(response.data.data);
       }
     } catch { /* silent */ } finally {
-      setLoading(false); setRefreshing(false); setLoadingMore(false);
+      setLoading(false); setRefreshing(false);
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
-  const onRefresh = () => { setRefreshing(true); fetchData(1); };
-  const onEndReached = () => {
-    if (!meta || meta.current_page >= meta.last_page || loadingMore) return;
-    setLoadingMore(true); fetchData(meta.current_page + 1, true);
-  };
+  useEffect(() => {
+    setLoading(true);
+    fetchData(filter);
+  }, [fetchData, filter]);
 
-  const handleRevisi = (id: number, role: RevisiRole, currentDone: boolean) => {
-    const nextLabel = currentDone ? 'belum selesai' : 'selesai';
+  const onRefresh = () => { setRefreshing(true); fetchData(filter); };
+
+  const handleSetujuiRevisi = (id: number, role: RevisiRole) => {
     Alert.alert(
-      'Update Revisi',
-      `Tandai revisi ${role.replace(/_/g, ' ')} sebagai ${nextLabel}?`,
+      'Setujui Revisi',
+      `Setujui hasil revisi sidang mahasiswa sebagai ${role.replace(/_/g, ' ')}?`,
       [
         { text: 'Batal', style: 'cancel' },
         {
-          text: 'Ya', onPress: async () => {
+          text: 'Ya, Setujui', onPress: async () => {
             try {
-              await sidangApi.submitRevisi(id, { role, status: !currentDone });
-              fetchData(1);
+              await sidangApi.submitRevisi(id, { role, status: true });
+              fetchData(filter);
             } catch (err: unknown) {
-              Alert.alert('Gagal', (err as { message?: string }).message ?? 'Gagal update revisi');
+              Alert.alert('Gagal', (err as { message?: string }).message ?? 'Gagal setujui revisi');
             }
           },
         },
@@ -86,90 +89,156 @@ export function SidangDosenScreen({ navigation }: Props) {
     );
   };
 
-  if (loading && !refreshing) return <LoadingScreen />;
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.container}>
+        <FilterTabs current={filter} onChange={setFilter} />
+        <LoadingScreen />
+      </View>
+    );
+  }
 
   return (
-    <FlatList
-      style={styles.container}
-      data={items}
-      keyExtractor={(item) => String(item.id)}
-      renderItem={({ item }) => {
-        const nama = item.user?.name ?? 'Mahasiswa tidak diketahui';
-        const nim = item.user?.nim;
-        const periode = item.periode?.periode;
-        const tanggal = formatTanggal(item.tanggal ?? item.created_at);
+    <View style={styles.container}>
+      <FilterTabs current={filter} onChange={setFilter} />
+      <FlatList
+        data={items}
+        keyExtractor={(item) => String(item.id)}
+        renderItem={({ item }) => {
+          const nama = item.user?.name ?? 'Mahasiswa tidak diketahui';
+          const nim = item.user?.nim;
+          const periode = item.periode?.periode;
+          const tanggal = formatTanggal(item.tanggal ?? item.created_at);
+          const isPembimbing = item.is_pembimbing;
 
-        return (
-          <View style={styles.card}>
-            {/* Header: nama mahasiswa + status */}
-            <View style={styles.cardHeader}>
-              <View style={styles.headerLeft}>
-                <Text style={styles.mhsName} numberOfLines={1}>{nama}</Text>
-                {nim ? <Text style={styles.mhsNim}>NIM {nim}</Text> : null}
+          return (
+            <View style={styles.card}>
+              {/* Role badge — paling atas, biar dosen langsung tau perannya */}
+              <View style={[styles.roleBadge, isPembimbing ? styles.roleBimbingan : styles.roleUji]}>
+                <Text style={[styles.roleBadgeText, isPembimbing ? styles.roleBimbinganText : styles.roleUjiText]}>
+                  {isPembimbing ? '👨‍🏫' : '🧑‍⚖️'}  {item.my_role_label}
+                </Text>
               </View>
-              <StatusBadge status={item.status} />
-            </View>
 
-            {/* Meta info */}
-            <View style={styles.metaRow}>
-              {periode ? (
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>Periode</Text>
-                  <Text style={styles.metaValue} numberOfLines={1}>{periode}</Text>
+              {/* Header: nama mahasiswa + status */}
+              <View style={styles.cardHeader}>
+                <View style={styles.headerLeft}>
+                  <Text style={styles.mhsName} numberOfLines={1}>{nama}</Text>
+                  {nim ? <Text style={styles.mhsNim}>NIM {nim}</Text> : null}
                 </View>
-              ) : null}
-              <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Tanggal</Text>
-                <Text style={styles.metaValue}>{tanggal}</Text>
+                <StatusBadge status={item.status} />
               </View>
-            </View>
 
-            {/* Revisi chips */}
-            <Text style={styles.sectionLabel}>Status Revisi</Text>
-            <View style={styles.revisiContainer}>
-              {REVISI_ROLES.map(({ key, label, field }) => {
-                const done = !!item[field];
+              {/* Meta info */}
+              <View style={styles.metaRow}>
+                {periode ? (
+                  <View style={styles.metaItem}>
+                    <Text style={styles.metaLabel}>Periode</Text>
+                    <Text style={styles.metaValue} numberOfLines={1}>{periode}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.metaItem}>
+                  <Text style={styles.metaLabel}>Tanggal</Text>
+                  <Text style={styles.metaValue}>{tanggal}</Text>
+                </View>
+              </View>
+
+              {/* Action buttons — sejajar: Setujui Revisi & Beri Nilai */}
+              {(() => {
+                const myRole = item.my_role as RevisiRole;
+                const myRevisiDone = !!item[revisiFieldFor(myRole)];
                 return (
-                  <TouchableOpacity
-                    key={key}
-                    style={[styles.revisiChip, done ? styles.revisiDone : styles.revisiPending]}
-                    onPress={() => handleRevisi(item.id, key, done)}
-                  >
-                    <Text style={[styles.revisiText, done ? styles.revisiDoneText : styles.revisiPendingText]}>
-                      {done ? '✓' : '○'}  {label}
-                    </Text>
-                  </TouchableOpacity>
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, myRevisiDone ? styles.revisiDoneBtn : styles.revisiBtn]}
+                      onPress={() => {
+                        if (myRevisiDone) {
+                          Alert.alert('Revisi Disetujui', 'Anda sudah menyetujui revisi mahasiswa ini.');
+                          return;
+                        }
+                        handleSetujuiRevisi(item.id, myRole);
+                      }}
+                    >
+                      <Text style={[styles.actionBtnText, myRevisiDone ? styles.revisiDoneBtnText : styles.revisiBtnText]}>
+                        {myRevisiDone ? '✓  Revisi Disetujui' : '✍️  Setujui Revisi'}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.nilaiBtn]}
+                      onPress={() =>
+                        navigation.navigate('PenilaianForm', {
+                          type: 'sidang',
+                          targetId: item.id,
+                          mahasiswaName: nama,
+                        })
+                      }
+                    >
+                      <Text style={styles.nilaiBtnText}>📝  Beri Nilai</Text>
+                    </TouchableOpacity>
+                  </View>
                 );
-              })}
+              })()}
             </View>
+          );
+        }}
+        ListEmptyComponent={
+          <EmptyState
+            message={
+              filter === 'bimbingan' ? 'Belum ada mahasiswa bimbingan sidang'
+                : filter === 'uji' ? 'Belum ada mahasiswa yang diuji'
+                : 'Belum ada data sidang'
+            }
+          />
+        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={items.length === 0 ? { flex: 1 } : { padding: 16 }}
+      />
+    </View>
+  );
+}
 
-            {/* Action button */}
-            <TouchableOpacity
-              style={styles.nilaiBtn}
-              onPress={() =>
-                navigation.navigate('PenilaianForm', {
-                  type: 'sidang',
-                  targetId: item.id,
-                  mahasiswaName: nama,
-                })
-              }
-            >
-              <Text style={styles.nilaiBtnText}>📝  Beri Nilai</Text>
-            </TouchableOpacity>
-          </View>
+function FilterTabs({ current, onChange }: { current: PenilaianListType; onChange: (t: PenilaianListType) => void }) {
+  return (
+    <View style={styles.tabBar}>
+      {FILTER_TABS.map((t) => {
+        const active = t.key === current;
+        return (
+          <TouchableOpacity
+            key={t.key}
+            style={[styles.tab, active && styles.tabActive]}
+            onPress={() => onChange(t.key)}
+          >
+            <Text style={[styles.tabText, active && styles.tabTextActive]}>{t.label}</Text>
+          </TouchableOpacity>
         );
-      }}
-      ListEmptyComponent={<EmptyState message="Belum ada data sidang" />}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-      onEndReached={onEndReached}
-      onEndReachedThreshold={0.3}
-      contentContainerStyle={items.length === 0 ? { flex: 1 } : { padding: 16 }}
-    />
+      })}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F7FA' },
+
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 10,
+    gap: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8ECF0',
+  },
+  tab: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#F0F2F5',
+    alignItems: 'center',
+  },
+  tabActive: { backgroundColor: '#0066CC' },
+  tabText: { fontSize: 12, fontWeight: '600', color: '#666' },
+  tabTextActive: { color: '#fff' },
 
   card: {
     backgroundColor: '#fff',
@@ -182,6 +251,19 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+
+  roleBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 10,
+  },
+  roleBimbingan: { backgroundColor: '#E3F2FD' },
+  roleUji: { backgroundColor: '#FFF3E0' },
+  roleBadgeText: { fontSize: 11, fontWeight: '700' },
+  roleBimbinganText: { color: '#1565C0' },
+  roleUjiText: { color: '#E65100' },
 
   cardHeader: {
     flexDirection: 'row',
@@ -206,33 +288,25 @@ const styles = StyleSheet.create({
   metaLabel: { fontSize: 10, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600' },
   metaValue: { fontSize: 13, color: '#333', marginTop: 2, fontWeight: '500' },
 
-  sectionLabel: {
-    fontSize: 11,
-    color: '#888',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    fontWeight: '600',
-    marginBottom: 6,
+  actionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
   },
-  revisiContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  revisiChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  revisiDone: { backgroundColor: '#E8F5E9', borderColor: '#C8E6C9' },
-  revisiPending: { backgroundColor: '#FFF8E1', borderColor: '#FFECB3' },
-  revisiText: { fontSize: 11, fontWeight: '600' },
-  revisiDoneText: { color: '#2E7D32' },
-  revisiPendingText: { color: '#E65100' },
-
-  nilaiBtn: {
-    marginTop: 14,
-    backgroundColor: '#0066CC',
+  actionBtn: {
+    flex: 1,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
+    borderWidth: 1,
   },
-  nilaiBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  actionBtnText: { fontSize: 13, fontWeight: '700' },
+
+  revisiBtn: { backgroundColor: '#FFF8E1', borderColor: '#FFB300' },
+  revisiBtnText: { color: '#E65100' },
+  revisiDoneBtn: { backgroundColor: '#E8F5E9', borderColor: '#A5D6A7' },
+  revisiDoneBtnText: { color: '#2E7D32' },
+
+  nilaiBtn: { backgroundColor: '#0066CC', borderColor: '#0066CC' },
+  nilaiBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });
