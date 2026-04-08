@@ -11,7 +11,7 @@
 // ── URL yang boleh diubah mahasiswa ──────────────────────────────────────────
 
 /** Ganti dengan IP komputer Anda saat development (jalankan: ipconfig/ifconfig) */
-const DEV_API_URL = 'http://192.168.18.12:8000/api/v1';
+const DEV_API_URL = 'http://10.128.146.213:8000/api/v1';
 
 // ── URL production — jangan hardcode di sini ─────────────────────────────────
 // Diambil dari .env.local (file ini di-ignore git, tidak ikut ke repository)
