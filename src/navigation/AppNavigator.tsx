@@ -1,6 +1,8 @@
 import React from 'react';
+import { Platform } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuthStore } from '../stores/authStore';
+import { palette } from '../theme';
 import type { RootStackParamList } from './types';
 
 // Auth
@@ -72,10 +74,16 @@ export function AppNavigator() {
   return (
     <Stack.Navigator
       screenOptions={{
-        headerStyle: { backgroundColor: '#0066CC' },
+        headerStyle: { backgroundColor: palette.primary },
         headerTintColor: '#fff',
-        headerTitleStyle: { fontWeight: '600' },
-        contentStyle: { backgroundColor: '#fff' },
+        headerTitleStyle: {
+          fontWeight: '700',
+          fontSize: 17,
+        },
+        headerTitleAlign: Platform.OS === 'ios' ? 'center' : 'left',
+        headerShadowVisible: false,
+        headerBackTitle: '',
+        contentStyle: { backgroundColor: palette.background },
         animation: 'slide_from_right',
       }}
     >

@@ -91,10 +91,14 @@ api.interceptors.response.use(
           status: 429,
         });
       case 500:
+        // Forward backend message kalau ada (lebih informatif dari "kesalahan server")
         return Promise.reject({
           success: false,
-          message: 'Terjadi kesalahan server. Silakan coba lagi nanti.',
+          message:
+            error.response.data?.message ??
+            'Terjadi kesalahan server. Silakan coba lagi nanti.',
           status: 500,
+          errors: error.response.data?.errors,
         });
     }
 

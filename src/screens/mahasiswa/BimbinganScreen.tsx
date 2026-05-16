@@ -1,22 +1,39 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import {
-  View,
+  ActivityIndicator,
+  Card,
+  Chip,
+  FAB,
+  Surface,
   Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-} from 'react-native';
+  TouchableRipple,
+} from 'react-native-paper';
+import { Calendar, ChevronRight, GraduationCap, Plus } from 'lucide-react-native';
 import { bimbinganApi } from '../../api/endpoints/bimbingan';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { palette } from '../../theme';
 import type { Bimbingan, BimbinganStatus, PaginationMeta } from '../../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../navigation/types';
 
 interface Props {
-  navigation: NativeStackNavigationProp<Record<string, object | undefined>>;
+  navigation: NativeStackNavigationProp<RootStackParamList>;
 }
+
+interface FilterOption {
+  value: BimbinganStatus | undefined;
+  label: string;
+}
+
+const filters: FilterOption[] = [
+  { value: undefined, label: 'Semua' },
+  { value: 'created', label: 'Menunggu' },
+  { value: 'approved', label: 'Disetujui' },
+  { value: 'rejected', label: 'Ditolak' },
+];
 
 export function BimbinganScreen({ navigation }: Props) {
   const [items, setItems] = useState<Bimbingan[]>([]);
@@ -26,23 +43,39 @@ export function BimbinganScreen({ navigation }: Props) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState<BimbinganStatus | undefined>(undefined);
 
-  const fetchData = useCallback(async (page = 1, append = false) => {
-    try {
-      const response = await bimbinganApi.list({ page, per_page: 15, status: filter });
-      if (response.data.success) {
-        setItems(append ? (prev) => [...prev, ...response.data.data] : response.data.data);
-        setMeta(response.data.meta);
+  const fetchData = useCallback(
+    async (page = 1, append = false) => {
+      try {
+        const response = await bimbinganApi.list({ page, per_page: 15, status: filter });
+        if (response.data.success) {
+          if (append) {
+            setItems((prev) => [...prev, ...response.data.data]);
+          } else {
+            setItems(response.data.data);
+          }
+          setMeta(response.data.meta);
+        }
+      } catch {
+        /* silent */
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        setLoadingMore(false);
       }
-    } catch { /* silent */ } finally {
-      setLoading(false);
-      setRefreshing(false);
-      setLoadingMore(false);
-    }
-  }, [filter]);
+    },
+    [filter]
+  );
 
-  useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
+  useEffect(() => {
+    setLoading(true);
+    fetchData();
+  }, [fetchData]);
 
-  const onRefresh = () => { setRefreshing(true); fetchData(1); };
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData(1);
+  };
+
   const onEndReached = () => {
     if (!meta || meta.current_page >= meta.last_page || loadingMore) return;
     setLoadingMore(true);
@@ -53,65 +86,162 @@ export function BimbinganScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      {/* Filter chips */}
       <View style={styles.filterRow}>
-        {([undefined, 'created', 'approved', 'rejected'] as (BimbinganStatus | undefined)[]).map((f) => (
-          <TouchableOpacity
-            key={f ?? 'all'}
-            style={[styles.filterChip, filter === f && styles.filterActive]}
-            onPress={() => setFilter(f)}
+        {filters.map((f) => (
+          <Chip
+            key={f.value ?? 'all'}
+            selected={filter === f.value}
+            onPress={() => setFilter(f.value)}
+            style={[styles.filterChip, filter === f.value && styles.filterChipActive]}
+            textStyle={[styles.filterText, filter === f.value && styles.filterTextActive]}
+            showSelectedCheck={false}
+            compact
           >
-            <Text style={[styles.filterText, filter === f && styles.filterTextActive]}>
-              {f ? f.charAt(0).toUpperCase() + f.slice(1) : 'Semua'}
-            </Text>
-          </TouchableOpacity>
+            {f.label}
+          </Chip>
         ))}
       </View>
+
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
+          <BimbinganCard
+            item={item}
             onPress={() => navigation.navigate('BimbinganDetail', { id: item.id })}
-          >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardDate}>
-                {new Date(item.tanggal).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-              </Text>
-              <StatusBadge status={item.status} />
-            </View>
-            {item.dosen && <Text style={styles.cardDosen}>Dosen: {item.dosen.name}</Text>}
-            <Text style={styles.cardKet} numberOfLines={2}>{item.ket_bimbingan}</Text>
-          </TouchableOpacity>
+          />
         )}
         ListEmptyComponent={<EmptyState message="Belum ada data bimbingan" />}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListFooterComponent={
+          loadingMore ? (
+            <ActivityIndicator style={{ marginVertical: 16 }} color={palette.primary} />
+          ) : null
+        }
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[palette.primary]}
+          />
+        }
         onEndReached={onEndReached}
         onEndReachedThreshold={0.3}
-        contentContainerStyle={items.length === 0 ? { flex: 1 } : { paddingBottom: 16 }}
+        contentContainerStyle={items.length === 0 ? styles.emptyContent : styles.listContent}
       />
-      <TouchableOpacity
+
+      <FAB
+        icon={({ size, color }) => <Plus size={size} color={color} strokeWidth={2.4} />}
+        onPress={() => navigation.navigate('BimbinganForm', undefined)}
         style={styles.fab}
-        onPress={() => navigation.navigate('BimbinganForm')}
-      >
-        <Text style={styles.fabText}>+</Text>
-      </TouchableOpacity>
+        color="#fff"
+      />
     </View>
   );
 }
 
+function BimbinganCard({ item, onPress }: { item: Bimbingan; onPress: () => void }) {
+  return (
+    <Card mode="elevated" style={styles.card}>
+      <TouchableRipple onPress={onPress} borderless={false} rippleColor="rgba(30,108,183,0.08)">
+        <View style={styles.cardInner}>
+          <Surface elevation={0} style={styles.dateBox}>
+            <Calendar size={16} color={palette.primary} strokeWidth={2} />
+            <Text variant="labelSmall" style={styles.dateText}>
+              {new Date(item.tanggal).toLocaleDateString('id-ID', {
+                day: '2-digit',
+                month: 'short',
+              })}
+            </Text>
+            <Text variant="labelSmall" style={styles.yearText}>
+              {new Date(item.tanggal).getFullYear()}
+            </Text>
+          </Surface>
+          <View style={{ flex: 1 }}>
+            <View style={styles.cardHeader}>
+              {item.dosen?.name && (
+                <View style={styles.dosenRow}>
+                  <GraduationCap size={14} color={palette.primary} strokeWidth={2} />
+                  <Text variant="labelMedium" style={styles.dosenName} numberOfLines={1}>
+                    {item.dosen.name}
+                  </Text>
+                </View>
+              )}
+              <StatusBadge status={item.status} />
+            </View>
+            <Text variant="bodySmall" style={styles.ket} numberOfLines={2}>
+              {item.ket_bimbingan}
+            </Text>
+          </View>
+          <ChevronRight size={18} color={palette.onSurfaceVariant} strokeWidth={2} />
+        </View>
+      </TouchableRipple>
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  filterRow: { flexDirection: 'row', padding: 12, gap: 8 },
-  filterChip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E0E0E0' },
-  filterActive: { backgroundColor: '#0066CC', borderColor: '#0066CC' },
-  filterText: { fontSize: 12, color: '#666' },
-  filterTextActive: { color: '#fff' },
-  card: { backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 10, padding: 16, borderRadius: 12 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardDate: { fontSize: 14, fontWeight: '600', color: '#333' },
-  cardDosen: { fontSize: 13, color: '#0066CC', marginTop: 6 },
-  cardKet: { fontSize: 13, color: '#666', marginTop: 4 },
-  fab: { position: 'absolute', right: 20, bottom: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: '#0066CC', justifyContent: 'center', alignItems: 'center', elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.15, shadowRadius: 6 },
-  fabText: { color: '#fff', fontSize: 28, lineHeight: 30 },
+  container: { flex: 1, backgroundColor: palette.background },
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  filterChip: {
+    backgroundColor: '#fff',
+    borderColor: palette.outline,
+  },
+  filterChipActive: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  filterText: { color: palette.onSurfaceVariant, fontSize: 12 },
+  filterTextActive: { color: '#fff', fontWeight: '700' },
+
+  listContent: { paddingBottom: 100 },
+  emptyContent: { flex: 1, justifyContent: 'center' },
+
+  card: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+  },
+  cardInner: {
+    flexDirection: 'row',
+    padding: 14,
+    gap: 12,
+    alignItems: 'center',
+  },
+  dateBox: {
+    width: 56,
+    backgroundColor: palette.primaryContainer,
+    borderRadius: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateText: { color: palette.primary, fontWeight: '700', marginTop: 2 },
+  yearText: { color: palette.primary, opacity: 0.7, fontSize: 10 },
+
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: 8,
+  },
+  dosenRow: { flexDirection: 'row', alignItems: 'center', gap: 4, flex: 1 },
+  dosenName: { color: palette.primary, fontWeight: '600', flex: 1 },
+  ket: { color: palette.onSurfaceVariant },
+
+  fab: {
+    position: 'absolute',
+    right: 16,
+    bottom: 16,
+    backgroundColor: palette.primary,
+    borderRadius: 16,
+  },
 });

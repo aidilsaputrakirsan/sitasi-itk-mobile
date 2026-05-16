@@ -1,46 +1,69 @@
 import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import {
-  View,
+  Button,
+  Card,
+  HelperText,
+  Snackbar,
+  Surface,
   Text,
-  StyleSheet,
-  ScrollView,
   TextInput,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+} from 'react-native-paper';
+import { Calendar, FileText, MessageSquare, Save } from 'lucide-react-native';
 import { bimbinganApi } from '../../api/endpoints/bimbingan';
 import { usersApi } from '../../api/endpoints/users';
+import { DosenPicker } from '../../components/ui/DosenPicker';
+import { palette } from '../../theme';
 import type { AvailableDosen } from '../../types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BimbinganForm'>;
 
+type SnackState = { visible: boolean; message: string; variant: 'success' | 'error' };
+
 export function BimbinganFormScreen({ route, navigation }: Props) {
   const editData = route.params?.data;
   const isEdit = !!editData;
 
-  const [tanggal, setTanggal] = useState(editData?.tanggal ?? new Date().toISOString().split('T')[0]);
+  const [tanggal, setTanggal] = useState(
+    editData?.tanggal ?? new Date().toISOString().split('T')[0]
+  );
   const [dosenId, setDosenId] = useState<number | null>(editData?.dosen?.id ?? null);
   const [ketBimbingan, setKetBimbingan] = useState(editData?.ket_bimbingan ?? '');
   const [hasilBimbingan, setHasilBimbingan] = useState(editData?.hasil_bimbingan ?? '');
   const [dosenList, setDosenList] = useState<AvailableDosen[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [snack, setSnack] = useState<SnackState>({
+    visible: false,
+    message: '',
+    variant: 'success',
+  });
+
+  const showSnack = (message: string, variant: 'success' | 'error') =>
+    setSnack({ visible: true, message, variant });
 
   useEffect(() => {
     (async () => {
       try {
         const response = await usersApi.listDosen({ per_page: 100 });
         if (response.data.success) setDosenList(response.data.data);
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     })();
   }, []);
 
   const handleSubmit = async () => {
-    if (!dosenId) { Alert.alert('Error', 'Pilih dosen pembimbing'); return; }
-    if (!ketBimbingan.trim()) { Alert.alert('Error', 'Keterangan bimbingan harus diisi'); return; }
+    if (!dosenId) {
+      showSnack('Pilih dosen pembimbing', 'error');
+      return;
+    }
+    if (!ketBimbingan.trim()) {
+      showSnack('Keterangan bimbingan harus diisi', 'error');
+      return;
+    }
 
     setSubmitting(true);
     setErrors({});
@@ -58,94 +81,200 @@ export function BimbinganFormScreen({ route, navigation }: Props) {
         await bimbinganApi.create(payload);
       }
 
-      Alert.alert('Berhasil', isEdit ? 'Bimbingan berhasil diperbarui' : 'Bimbingan berhasil dibuat');
-      navigation.goBack();
+      showSnack(isEdit ? 'Bimbingan berhasil diperbarui' : 'Bimbingan berhasil dibuat', 'success');
+      setTimeout(() => navigation.goBack(), 800);
     } catch (err: unknown) {
       const error = err as { message?: string; errors?: Record<string, string[]> };
-      if (error.errors) setErrors(error.errors);
-      else Alert.alert('Gagal', error.message ?? 'Terjadi kesalahan');
-    } finally { setSubmitting(false); }
+      if (error.errors) {
+        setErrors(error.errors);
+        showSnack('Periksa kembali isian form', 'error');
+      } else {
+        showSnack(error.message ?? 'Terjadi kesalahan', 'error');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <View style={styles.form}>
-        <Text style={styles.label}>Tanggal</Text>
-        <TextInput
-          style={styles.input}
-          value={tanggal}
-          onChangeText={setTanggal}
-          placeholder="YYYY-MM-DD"
-        />
-        {errors.tanggal?.map((msg, i) => <Text key={i} style={styles.fieldError}>{msg}</Text>)}
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Header */}
+        <Surface elevation={0} style={styles.header}>
+          <Text variant="titleMedium" style={styles.headerTitle}>
+            {isEdit ? 'Edit Bimbingan' : 'Catat Bimbingan'}
+          </Text>
+          <Text variant="bodySmall" style={styles.headerSubtitle}>
+            {isEdit
+              ? 'Perbarui data sesi bimbingan Anda'
+              : 'Isi detail sesi bimbingan dengan dosen pembimbing'}
+          </Text>
+        </Surface>
 
-        <Text style={styles.label}>Dosen Pembimbing</Text>
-        <ScrollView horizontal style={styles.dosenPicker} showsHorizontalScrollIndicator={false}>
-          {dosenList.map((d) => (
-            <TouchableOpacity
-              key={d.id}
-              style={[styles.dosenChip, dosenId === d.id && styles.dosenChipActive]}
-              onPress={() => setDosenId(d.id)}
-            >
-              <Text style={[styles.dosenChipText, dosenId === d.id && styles.dosenChipTextActive]}>
-                {d.name}
+        {/* Tanggal */}
+        <Card mode="elevated" style={styles.section}>
+          <Card.Content>
+            <View style={styles.sectionLabel}>
+              <Calendar size={16} color={palette.primary} strokeWidth={2} />
+              <Text variant="labelLarge" style={styles.sectionLabelText}>
+                Tanggal Bimbingan
               </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-        {errors.dosen?.map((msg, i) => <Text key={i} style={styles.fieldError}>{msg}</Text>)}
+            </View>
+            <TextInput
+              mode="outlined"
+              value={tanggal}
+              onChangeText={setTanggal}
+              placeholder="YYYY-MM-DD"
+              error={!!errors.tanggal}
+              style={styles.input}
+            />
+            <HelperText type="error" visible={!!errors.tanggal}>
+              {errors.tanggal?.[0] ?? ' '}
+            </HelperText>
+          </Card.Content>
+        </Card>
 
-        <Text style={styles.label}>Keterangan Bimbingan</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={ketBimbingan}
-          onChangeText={setKetBimbingan}
-          placeholder="Tuliskan keterangan bimbingan..."
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-        />
-        {errors.ket_bimbingan?.map((msg, i) => <Text key={i} style={styles.fieldError}>{msg}</Text>)}
+        {/* Dosen pembimbing — searchable picker */}
+        <View style={styles.pickerWrap}>
+          <DosenPicker
+            label="Dosen Pembimbing"
+            value={dosenId}
+            options={dosenList}
+            onChange={setDosenId}
+            required
+            error={!!errors.dosen}
+          />
+          <HelperText type="error" visible={!!errors.dosen}>
+            {errors.dosen?.[0] ?? ' '}
+          </HelperText>
+        </View>
 
-        <Text style={styles.label}>Hasil Bimbingan (opsional)</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={hasilBimbingan}
-          onChangeText={setHasilBimbingan}
-          placeholder="Tuliskan hasil bimbingan..."
-          multiline
-          numberOfLines={4}
-          textAlignVertical="top"
-        />
+        {/* Keterangan */}
+        <Card mode="elevated" style={styles.section}>
+          <Card.Content>
+            <View style={styles.sectionLabel}>
+              <FileText size={16} color={palette.primary} strokeWidth={2} />
+              <Text variant="labelLarge" style={styles.sectionLabelText}>
+                Keterangan Bimbingan
+              </Text>
+            </View>
+            <TextInput
+              mode="outlined"
+              value={ketBimbingan}
+              onChangeText={setKetBimbingan}
+              placeholder="Topik atau materi yang dibahas..."
+              multiline
+              numberOfLines={4}
+              error={!!errors.ket_bimbingan}
+              style={[styles.input, styles.textArea]}
+            />
+            <HelperText type="error" visible={!!errors.ket_bimbingan}>
+              {errors.ket_bimbingan?.[0] ?? ' '}
+            </HelperText>
+          </Card.Content>
+        </Card>
 
-        <TouchableOpacity
-          style={[styles.submitButton, submitting && { opacity: 0.6 }]}
+        {/* Hasil */}
+        <Card mode="elevated" style={styles.section}>
+          <Card.Content>
+            <View style={styles.sectionLabel}>
+              <MessageSquare size={16} color={palette.primary} strokeWidth={2} />
+              <Text variant="labelLarge" style={styles.sectionLabelText}>
+                Hasil Bimbingan
+              </Text>
+              <Text variant="labelSmall" style={styles.optional}>
+                opsional
+              </Text>
+            </View>
+            <TextInput
+              mode="outlined"
+              value={hasilBimbingan}
+              onChangeText={setHasilBimbingan}
+              placeholder="Catatan / arahan dari dosen..."
+              multiline
+              numberOfLines={4}
+              style={[styles.input, styles.textArea]}
+            />
+          </Card.Content>
+        </Card>
+      </ScrollView>
+
+      {/* Submit button — sticky bottom */}
+      <Surface elevation={3} style={styles.submitBar}>
+        <Button
+          mode="contained"
           onPress={handleSubmit}
+          loading={submitting}
           disabled={submitting}
+          icon={({ size, color }) => <Save size={size} color={color} strokeWidth={2} />}
+          contentStyle={styles.submitContent}
+          style={styles.submitBtn}
         >
-          {submitting ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.submitButtonText}>{isEdit ? 'Update' : 'Simpan'}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          {isEdit ? 'Perbarui Bimbingan' : 'Simpan Bimbingan'}
+        </Button>
+      </Surface>
+
+      <Snackbar
+        visible={snack.visible}
+        onDismiss={() => setSnack((s) => ({ ...s, visible: false }))}
+        duration={2500}
+        style={{
+          backgroundColor: snack.variant === 'success' ? palette.success : palette.error,
+        }}
+      >
+        {snack.message}
+      </Snackbar>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  form: { margin: 16, backgroundColor: '#fff', padding: 20, borderRadius: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6, marginTop: 16 },
-  input: { backgroundColor: '#F5F7FA', borderRadius: 10, padding: 14, fontSize: 15, borderWidth: 1, borderColor: '#E0E0E0' },
+  root: { flex: 1, backgroundColor: palette.background },
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: 100 },
+
+  header: { padding: 16, paddingBottom: 8, backgroundColor: 'transparent' },
+  headerTitle: { color: palette.onSurface, fontWeight: '700' },
+  headerSubtitle: { color: palette.onSurfaceVariant, marginTop: 2 },
+
+  section: { marginHorizontal: 16, marginTop: 10, backgroundColor: '#fff' },
+  pickerWrap: { marginHorizontal: 16, marginTop: 10 },
+
+  sectionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+  },
+  sectionLabelText: {
+    color: palette.onSurface,
+    fontWeight: '700',
+    flex: 1,
+  },
+  optional: {
+    color: palette.onSurfaceVariant,
+    fontStyle: 'italic',
+  },
+
+  input: { backgroundColor: '#fff' },
   textArea: { minHeight: 100 },
-  dosenPicker: { flexDirection: 'row', marginVertical: 4 },
-  dosenChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: '#F5F7FA', marginRight: 8, borderWidth: 1, borderColor: '#E0E0E0' },
-  dosenChipActive: { backgroundColor: '#0066CC', borderColor: '#0066CC' },
-  dosenChipText: { fontSize: 13, color: '#666' },
-  dosenChipTextActive: { color: '#fff' },
-  fieldError: { color: '#CC0000', fontSize: 12, marginTop: 4 },
-  submitButton: { backgroundColor: '#0066CC', padding: 16, borderRadius: 10, alignItems: 'center', marginTop: 24 },
-  submitButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  submitBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: palette.outlineVariant,
+  },
+  submitBtn: { borderRadius: 12 },
+  submitContent: { paddingVertical: 6 },
 });

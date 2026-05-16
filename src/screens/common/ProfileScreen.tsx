@@ -1,36 +1,60 @@
 import React, { useState } from 'react';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
 import {
-  View,
+  Avatar,
+  Button,
+  Card,
+  Divider,
+  Surface,
   Text,
-  StyleSheet,
-  ScrollView,
-  Image,
-  TouchableOpacity,
-  Alert,
   TextInput,
+  Snackbar,
   ActivityIndicator,
-} from 'react-native';
+  Dialog,
+  Portal,
+} from 'react-native-paper';
+import {
+  AtSign,
+  BookOpen,
+  Camera,
+  Eye,
+  EyeOff,
+  GraduationCap,
+  IdCard,
+  Key,
+  LogOut,
+  Mail,
+  Phone,
+} from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { useAuthStore } from '../../stores/authStore';
 import { usersApi } from '../../api/endpoints/users';
 import { authApi } from '../../api/endpoints/auth';
+import { palette } from '../../theme';
+import { getUserDisplayName, getUserIdentifier, getUserRoleLabel } from '../../utils/userDisplay';
+
+type SnackState = { visible: boolean; message: string; variant: 'success' | 'error' };
 
 export function ProfileScreen() {
   const { user, refreshUser, logout } = useAuthStore();
   const [uploading, setUploading] = useState(false);
-
-  // Change password state
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [snack, setSnack] = useState<SnackState>({ visible: false, message: '', variant: 'success' });
+
+  const showSnack = (message: string, variant: 'success' | 'error') =>
+    setSnack({ visible: true, message, variant });
 
   const handleUploadPhoto = async () => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: ['image/jpeg', 'image/png'],
-      });
+      const result = await DocumentPicker.getDocumentAsync({ type: ['image/jpeg', 'image/png'] });
       if (result.canceled) return;
 
       setUploading(true);
@@ -44,9 +68,9 @@ export function ProfileScreen() {
 
       await usersApi.updateProfile(formData);
       await refreshUser();
-      Alert.alert('Berhasil', 'Foto profil berhasil diperbarui');
+      showSnack('Foto profil berhasil diperbarui', 'success');
     } catch (err: unknown) {
-      Alert.alert('Gagal', (err as { message?: string }).message ?? 'Gagal upload foto');
+      showSnack((err as { message?: string }).message ?? 'Gagal upload foto', 'error');
     } finally {
       setUploading(false);
     }
@@ -54,11 +78,11 @@ export function ProfileScreen() {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Semua field harus diisi');
+      showSnack('Semua field harus diisi', 'error');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Password baru tidak cocok');
+      showSnack('Password baru tidak cocok', 'error');
       return;
     }
 
@@ -69,7 +93,7 @@ export function ProfileScreen() {
         password: newPassword,
         password_confirmation: confirmPassword,
       });
-      Alert.alert('Berhasil', 'Password berhasil diubah');
+      showSnack('Password berhasil diubah', 'success');
       setShowChangePassword(false);
       setCurrentPassword('');
       setNewPassword('');
@@ -79,200 +103,338 @@ export function ProfileScreen() {
       const msgs = error.errors
         ? Object.values(error.errors).flat().join('\n')
         : error.message ?? 'Gagal mengubah password';
-      Alert.alert('Gagal', msgs);
+      showSnack(msgs, 'error');
     } finally {
       setChangingPassword(false);
     }
   };
 
-  const handleLogout = () => {
-    Alert.alert('Logout', 'Apakah Anda yakin ingin keluar?', [
-      { text: 'Batal', style: 'cancel' },
-      { text: 'Keluar', style: 'destructive', onPress: () => logout() },
-    ]);
-  };
-
   if (!user) return null;
 
+  const displayName = getUserDisplayName(user);
+  const identifier = getUserIdentifier(user);
+  const roleLabel = getUserRoleLabel(user.roles);
+  const initials = displayName
+    .split(' ')
+    .slice(0, 2)
+    .map((s) => s.charAt(0).toUpperCase())
+    .join('');
+
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.profileHeader}>
-        <TouchableOpacity onPress={handleUploadPhoto} disabled={uploading}>
-          {user.photo ? (
-            <Image source={{ uri: user.photo }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatar, styles.avatarPlaceholder]}>
-              <Text style={styles.avatarText}>
-                {user.name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-          {uploading && (
-            <View style={styles.uploadOverlay}>
-              <ActivityIndicator color="#fff" />
-            </View>
-          )}
-        </TouchableOpacity>
-        <Text style={styles.name}>{user.name}</Text>
-        <Text style={styles.role}>{user.roles.join(', ').toUpperCase()}</Text>
-      </View>
-
-      <View style={styles.infoSection}>
-        <InfoRow label="Username" value={user.username} />
-        <InfoRow label="Email" value={user.email} />
-        {user.nim && <InfoRow label="NIM" value={user.nim} />}
-        {user.nip && <InfoRow label="NIP" value={user.nip} />}
-        {user.telpon && <InfoRow label="Telepon" value={user.telpon} />}
-        {user.judul_ta && <InfoRow label="Judul TA" value={user.judul_ta} />}
-      </View>
-
-      <View style={styles.actionsSection}>
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => setShowChangePassword(!showChangePassword)}
-        >
-          <Text style={styles.actionButtonText}>Ubah Password</Text>
-        </TouchableOpacity>
-
-        {showChangePassword && (
-          <View style={styles.changePasswordForm}>
-            <TextInput
-              style={styles.input}
-              placeholder="Password saat ini"
-              secureTextEntry
-              value={currentPassword}
-              onChangeText={setCurrentPassword}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Password baru"
-              secureTextEntry
-              value={newPassword}
-              onChangeText={setNewPassword}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Konfirmasi password baru"
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
-            <TouchableOpacity
-              style={[styles.submitButton, changingPassword && { opacity: 0.6 }]}
-              onPress={handleChangePassword}
-              disabled={changingPassword}
-            >
-              {changingPassword ? (
-                <ActivityIndicator color="#fff" />
+    <View style={styles.root}>
+      <ScrollView contentContainerStyle={styles.scroll}>
+        {/* Header dengan gradient warna primary */}
+        <Surface elevation={0} style={styles.header}>
+          <Pressable onPress={handleUploadPhoto} disabled={uploading} style={styles.avatarWrap}>
+            {user.photo ? (
+              <Avatar.Image size={96} source={{ uri: user.photo }} />
+            ) : (
+              <Avatar.Text
+                size={96}
+                label={initials || '?'}
+                style={{ backgroundColor: palette.primaryDark }}
+                color="#fff"
+              />
+            )}
+            <View style={styles.cameraBadge}>
+              {uploading ? (
+                <ActivityIndicator size={14} color="#fff" />
               ) : (
-                <Text style={styles.submitButtonText}>Simpan Password</Text>
+                <Camera size={14} color="#fff" strokeWidth={2.4} />
               )}
-            </TouchableOpacity>
-          </View>
-        )}
+            </View>
+          </Pressable>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutButtonText}>Keluar</Text>
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          <Text variant="headlineSmall" style={styles.name}>
+            {displayName}
+          </Text>
+          <Surface elevation={0} style={styles.roleChip}>
+            <Text variant="labelSmall" style={styles.roleText}>
+              {roleLabel}
+            </Text>
+          </Surface>
+          {identifier !== '-' && (
+            <Text variant="bodySmall" style={styles.identifier}>
+              {identifier}
+            </Text>
+          )}
+        </Surface>
+
+        {/* Info section */}
+        <Card mode="elevated" style={styles.card}>
+          <Card.Content style={styles.cardContent}>
+            <Text variant="titleSmall" style={styles.sectionTitle}>
+              Informasi Akun
+            </Text>
+            <InfoRow Icon={AtSign} label="Username" value={user.username} />
+            <Divider />
+            <InfoRow Icon={Mail} label="Email" value={user.email} />
+            {(user.mahasiswa?.nim || user.nim) && (
+              <>
+                <Divider />
+                <InfoRow Icon={IdCard} label="NIM" value={user.mahasiswa?.nim ?? user.nim ?? '-'} />
+              </>
+            )}
+            {(user.dosen?.nip || user.nip) && (
+              <>
+                <Divider />
+                <InfoRow Icon={IdCard} label="NIP" value={user.dosen?.nip ?? user.nip ?? '-'} />
+              </>
+            )}
+            {(user.mahasiswa?.nomor_telepon || user.telpon) && (
+              <>
+                <Divider />
+                <InfoRow
+                  Icon={Phone}
+                  label="Telepon"
+                  value={user.mahasiswa?.nomor_telepon ?? user.telpon ?? '-'}
+                />
+              </>
+            )}
+            {user.dosen?.prodi && (
+              <>
+                <Divider />
+                <InfoRow Icon={GraduationCap} label="Prodi" value={user.dosen.prodi} />
+              </>
+            )}
+            {user.judul_ta && (
+              <>
+                <Divider />
+                <InfoRow Icon={BookOpen} label="Judul TA" value={user.judul_ta} />
+              </>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Actions */}
+        <View style={styles.actions}>
+          <Button
+            mode="contained-tonal"
+            icon={({ size, color }) => <Key size={size} color={color} strokeWidth={2} />}
+            onPress={() => setShowChangePassword((v) => !v)}
+            style={styles.actionBtn}
+            contentStyle={styles.actionBtnContent}
+          >
+            {showChangePassword ? 'Tutup Ubah Password' : 'Ubah Password'}
+          </Button>
+
+          {showChangePassword && (
+            <Card mode="outlined" style={styles.formCard}>
+              <Card.Content>
+                <TextInput
+                  mode="outlined"
+                  label="Password saat ini"
+                  value={currentPassword}
+                  onChangeText={setCurrentPassword}
+                  secureTextEntry={!showCurrent}
+                  right={
+                    <TextInput.Icon
+                      icon={() =>
+                        showCurrent ? (
+                          <EyeOff size={20} color={palette.onSurfaceVariant} />
+                        ) : (
+                          <Eye size={20} color={palette.onSurfaceVariant} />
+                        )
+                      }
+                      onPress={() => setShowCurrent((v) => !v)}
+                    />
+                  }
+                  style={styles.input}
+                />
+                <TextInput
+                  mode="outlined"
+                  label="Password baru"
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry={!showNew}
+                  right={
+                    <TextInput.Icon
+                      icon={() =>
+                        showNew ? (
+                          <EyeOff size={20} color={palette.onSurfaceVariant} />
+                        ) : (
+                          <Eye size={20} color={palette.onSurfaceVariant} />
+                        )
+                      }
+                      onPress={() => setShowNew((v) => !v)}
+                    />
+                  }
+                  style={styles.input}
+                />
+                <TextInput
+                  mode="outlined"
+                  label="Konfirmasi password baru"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirm}
+                  right={
+                    <TextInput.Icon
+                      icon={() =>
+                        showConfirm ? (
+                          <EyeOff size={20} color={palette.onSurfaceVariant} />
+                        ) : (
+                          <Eye size={20} color={palette.onSurfaceVariant} />
+                        )
+                      }
+                      onPress={() => setShowConfirm((v) => !v)}
+                    />
+                  }
+                  style={styles.input}
+                />
+                <Button
+                  mode="contained"
+                  onPress={handleChangePassword}
+                  loading={changingPassword}
+                  disabled={changingPassword}
+                  style={{ marginTop: 8 }}
+                  contentStyle={styles.actionBtnContent}
+                >
+                  Simpan Password
+                </Button>
+              </Card.Content>
+            </Card>
+          )}
+
+          <Button
+            mode="outlined"
+            icon={({ size, color }) => <LogOut size={size} color={color} strokeWidth={2} />}
+            onPress={() => setShowLogoutDialog(true)}
+            style={[styles.actionBtn, styles.logoutBtn]}
+            contentStyle={styles.actionBtnContent}
+            textColor={palette.error}
+          >
+            Keluar
+          </Button>
+        </View>
+      </ScrollView>
+
+      <Portal>
+        <Dialog visible={showLogoutDialog} onDismiss={() => setShowLogoutDialog(false)}>
+          <Dialog.Title>Keluar dari akun?</Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium">
+              Anda akan keluar dari aplikasi dan perlu login kembali untuk mengakses fitur.
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowLogoutDialog(false)}>Batal</Button>
+            <Button
+              onPress={() => {
+                setShowLogoutDialog(false);
+                logout();
+              }}
+              textColor={palette.error}
+            >
+              Keluar
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      <Snackbar
+        visible={snack.visible}
+        onDismiss={() => setSnack((s) => ({ ...s, visible: false }))}
+        duration={3000}
+        style={{
+          backgroundColor: snack.variant === 'success' ? palette.success : palette.error,
+        }}
+      >
+        {snack.message}
+      </Snackbar>
+    </View>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({
+  Icon,
+  label,
+  value,
+}: {
+  Icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
+  label: string;
+  value: string;
+}) {
   return (
     <View style={styles.infoRow}>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue}>{value}</Text>
+      <View style={styles.infoIcon}>
+        <Icon size={18} color={palette.primary} strokeWidth={1.8} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text variant="labelSmall" style={styles.infoLabel}>
+          {label}
+        </Text>
+        <Text variant="bodyMedium" style={styles.infoValue}>
+          {value}
+        </Text>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  profileHeader: {
+  root: { flex: 1, backgroundColor: palette.background },
+  scroll: { paddingBottom: 32 },
+  header: {
     alignItems: 'center',
-    padding: 24,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    paddingTop: 48,
+    paddingBottom: 24,
+    backgroundColor: palette.primary,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-  },
-  avatarPlaceholder: {
-    backgroundColor: '#0066CC',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: { color: '#fff', fontSize: 32, fontWeight: '700' },
-  uploadOverlay: {
+  avatarWrap: { position: 'relative' },
+  cameraBadge: {
     position: 'absolute',
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
+    bottom: 0,
+    right: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: palette.tertiary,
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
   },
-  name: { fontSize: 20, fontWeight: '700', color: '#333', marginTop: 12 },
-  role: { fontSize: 12, color: '#0066CC', fontWeight: '600', marginTop: 4, letterSpacing: 1 },
-  infoSection: {
-    backgroundColor: '#fff',
-    margin: 16,
-    borderRadius: 12,
-    padding: 16,
+  name: { color: '#fff', marginTop: 14, fontWeight: '700' },
+  roleChip: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginTop: 8,
+  },
+  roleText: { color: '#fff', letterSpacing: 1.2, fontWeight: '700' },
+  identifier: { color: 'rgba(255,255,255,0.85)', marginTop: 6 },
+  card: { marginHorizontal: 16, marginTop: -16, backgroundColor: '#fff' },
+  cardContent: { paddingVertical: 4 },
+  sectionTitle: {
+    color: palette.onSurfaceVariant,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: 8,
+    marginTop: 4,
   },
   infoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  infoLabel: { fontSize: 14, color: '#666' },
-  infoValue: { fontSize: 14, fontWeight: '600', color: '#333', flexShrink: 1, textAlign: 'right' },
-  actionsSection: { margin: 16, marginTop: 0 },
-  actionButton: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 12,
+    paddingVertical: 12,
+    gap: 12,
   },
-  actionButtonText: { fontSize: 15, fontWeight: '600', color: '#0066CC' },
-  changePasswordForm: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  input: {
-    backgroundColor: '#F5F7FA',
+  infoIcon: {
+    width: 36,
+    height: 36,
     borderRadius: 10,
-    padding: 14,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    marginBottom: 10,
-  },
-  submitButton: {
-    backgroundColor: '#0066CC',
-    padding: 14,
-    borderRadius: 10,
+    backgroundColor: palette.primaryContainer,
     alignItems: 'center',
-    marginTop: 4,
+    justifyContent: 'center',
   },
-  submitButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  logoutButton: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#FFCDD2',
-  },
-  logoutButtonText: { fontSize: 15, fontWeight: '600', color: '#CC0000' },
+  infoLabel: { color: palette.onSurfaceVariant, letterSpacing: 0.4 },
+  infoValue: { color: palette.onSurface, fontWeight: '500', marginTop: 2 },
+  actions: { paddingHorizontal: 16, marginTop: 16, gap: 10 },
+  actionBtn: { borderRadius: 12 },
+  actionBtnContent: { paddingVertical: 6 },
+  formCard: { marginTop: 4, backgroundColor: '#fff', borderColor: palette.outlineVariant },
+  input: { backgroundColor: '#fff', marginBottom: 10 },
+  logoutBtn: { borderColor: palette.errorContainer, marginTop: 8 },
 });

@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import {
-  View,
+  Button,
+  Card,
+  HelperText,
+  Snackbar,
+  Surface,
   Text,
-  StyleSheet,
-  ScrollView,
   TextInput,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+} from 'react-native-paper';
+import { FileText, Send, Tag } from 'lucide-react-native';
 import { pengajuanTAApi } from '../../api/endpoints/pengajuanTA';
+import { DosenPicker } from '../../components/ui/DosenPicker';
+import { palette } from '../../theme';
 import type { AvailableDosen } from '../../types';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PengajuanTAForm'>;
+
+type SnackState = { visible: boolean; message: string; variant: 'success' | 'error' };
 
 export function PengajuanTAFormScreen({ route, navigation }: Props) {
   const editData = route.params?.data;
@@ -27,19 +32,29 @@ export function PengajuanTAFormScreen({ route, navigation }: Props) {
   const [dosenList, setDosenList] = useState<AvailableDosen[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [snack, setSnack] = useState<SnackState>({
+    visible: false,
+    message: '',
+    variant: 'success',
+  });
+
+  const showSnack = (message: string, variant: 'success' | 'error') =>
+    setSnack({ visible: true, message, variant });
 
   useEffect(() => {
     (async () => {
       try {
         const response = await pengajuanTAApi.getAvailableDosen();
         if (response.data.success) setDosenList(response.data.data);
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     })();
   }, []);
 
   const handleSubmit = async () => {
     if (!judul.trim() || !bidangPenelitian.trim() || !pembimbing1) {
-      Alert.alert('Error', 'Judul, bidang penelitian, dan pembimbing 1 harus diisi');
+      showSnack('Judul, bidang penelitian, dan pembimbing 1 harus diisi', 'error');
       return;
     }
 
@@ -59,103 +74,184 @@ export function PengajuanTAFormScreen({ route, navigation }: Props) {
         await pengajuanTAApi.create(payload);
       }
 
-      Alert.alert('Berhasil', isEdit ? 'Pengajuan berhasil diperbarui' : 'Pengajuan berhasil dibuat');
-      navigation.goBack();
+      showSnack(isEdit ? 'Pengajuan berhasil diperbarui' : 'Pengajuan berhasil diajukan', 'success');
+      setTimeout(() => navigation.goBack(), 900);
     } catch (err: unknown) {
       const error = err as { message?: string; errors?: Record<string, string[]> };
-      if (error.errors) setErrors(error.errors);
-      else Alert.alert('Gagal', error.message ?? 'Terjadi kesalahan');
-    } finally { setSubmitting(false); }
+      if (error.errors) {
+        setErrors(error.errors);
+        showSnack('Periksa kembali isian form', 'error');
+      } else {
+        showSnack(error.message ?? 'Terjadi kesalahan', 'error');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const renderDosenPicker = (
-    label: string,
-    selected: number | null,
-    onSelect: (id: number | null) => void,
-    exclude?: number | null
-  ) => (
-    <>
-      <Text style={styles.label}>{label}</Text>
-      <ScrollView horizontal style={styles.dosenPicker} showsHorizontalScrollIndicator={false}>
-        {label.includes('2') && (
-          <TouchableOpacity
-            style={[styles.dosenChip, selected === null && styles.dosenChipActive]}
-            onPress={() => onSelect(null)}
-          >
-            <Text style={[styles.dosenChipText, selected === null && styles.dosenChipTextActive]}>Tidak ada</Text>
-          </TouchableOpacity>
-        )}
-        {dosenList
-          .filter((d) => d.id !== exclude)
-          .map((d) => (
-            <TouchableOpacity
-              key={d.id}
-              style={[styles.dosenChip, selected === d.id && styles.dosenChipActive]}
-              onPress={() => onSelect(d.id)}
-            >
-              <Text style={[styles.dosenChipText, selected === d.id && styles.dosenChipTextActive]}>
-                {d.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-      </ScrollView>
-    </>
-  );
-
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      <View style={styles.form}>
-        <Text style={styles.label}>Judul Tugas Akhir</Text>
-        <TextInput
-          style={[styles.input, styles.textArea]}
-          value={judul}
-          onChangeText={setJudul}
-          placeholder="Masukkan judul tugas akhir..."
-          multiline
-          textAlignVertical="top"
-        />
-        {errors.judul?.map((msg, i) => <Text key={i} style={styles.fieldError}>{msg}</Text>)}
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Surface elevation={0} style={styles.header}>
+          <Text variant="titleMedium" style={styles.headerTitle}>
+            {isEdit ? 'Edit Pengajuan TA' : 'Ajukan Tugas Akhir'}
+          </Text>
+          <Text variant="bodySmall" style={styles.headerSubtitle}>
+            Isi judul, bidang penelitian, dan pilih dosen pembimbing Anda
+          </Text>
+        </Surface>
 
-        <Text style={styles.label}>Bidang Penelitian</Text>
-        <TextInput
-          style={styles.input}
-          value={bidangPenelitian}
-          onChangeText={setBidangPenelitian}
-          placeholder="Contoh: Machine Learning, IoT, Web Development"
-        />
-        {errors.bidang_penelitian?.map((msg, i) => <Text key={i} style={styles.fieldError}>{msg}</Text>)}
+        {/* Judul */}
+        <Card mode="elevated" style={styles.section}>
+          <Card.Content>
+            <SectionLabel Icon={FileText} text="Judul Tugas Akhir" />
+            <TextInput
+              mode="outlined"
+              value={judul}
+              onChangeText={setJudul}
+              placeholder="Tuliskan judul lengkap tugas akhir..."
+              multiline
+              numberOfLines={3}
+              error={!!errors.judul}
+              style={[styles.input, styles.textArea]}
+            />
+            <HelperText type="error" visible={!!errors.judul}>
+              {errors.judul?.[0] ?? ' '}
+            </HelperText>
+          </Card.Content>
+        </Card>
 
-        {renderDosenPicker('Pembimbing 1 *', pembimbing1, setPembimbing1, pembimbing2)}
-        {errors.pembimbing_1?.map((msg, i) => <Text key={i} style={styles.fieldError}>{msg}</Text>)}
+        {/* Bidang */}
+        <Card mode="elevated" style={styles.section}>
+          <Card.Content>
+            <SectionLabel Icon={Tag} text="Bidang Penelitian" />
+            <TextInput
+              mode="outlined"
+              value={bidangPenelitian}
+              onChangeText={setBidangPenelitian}
+              placeholder="Contoh: Machine Learning, IoT, Web Development"
+              error={!!errors.bidang_penelitian}
+              style={styles.input}
+            />
+            <HelperText type="error" visible={!!errors.bidang_penelitian}>
+              {errors.bidang_penelitian?.[0] ?? ' '}
+            </HelperText>
+          </Card.Content>
+        </Card>
 
-        {renderDosenPicker('Pembimbing 2 (opsional)', pembimbing2, setPembimbing2, pembimbing1)}
+        {/* Pembimbing 1 — searchable picker (WAJIB) */}
+        <View style={styles.pickerWrap}>
+          <DosenPicker
+            label="Pembimbing 1"
+            value={pembimbing1}
+            options={dosenList}
+            exclude={[pembimbing2]}
+            onChange={setPembimbing1}
+            required
+            error={!!errors.pembimbing_1}
+          />
+          <HelperText type="error" visible={!!errors.pembimbing_1}>
+            {errors.pembimbing_1?.[0] ?? ' '}
+          </HelperText>
+        </View>
 
-        <TouchableOpacity
-          style={[styles.submitButton, submitting && { opacity: 0.6 }]}
+        {/* Pembimbing 2 — searchable picker (opsional) */}
+        <View style={styles.pickerWrap}>
+          <DosenPicker
+            label="Pembimbing 2 (opsional)"
+            value={pembimbing2}
+            options={dosenList}
+            exclude={[pembimbing1]}
+            onChange={setPembimbing2}
+            allowNone
+          />
+        </View>
+      </ScrollView>
+
+      <Surface elevation={3} style={styles.submitBar}>
+        <Button
+          mode="contained"
           onPress={handleSubmit}
+          loading={submitting}
           disabled={submitting}
+          icon={({ size, color }) => <Send size={size} color={color} strokeWidth={2} />}
+          contentStyle={styles.submitContent}
+          style={styles.submitBtn}
         >
-          {submitting ? <ActivityIndicator color="#fff" /> : (
-            <Text style={styles.submitButtonText}>{isEdit ? 'Update' : 'Ajukan'}</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+          {isEdit ? 'Perbarui Pengajuan' : 'Ajukan Sekarang'}
+        </Button>
+      </Surface>
+
+      <Snackbar
+        visible={snack.visible}
+        onDismiss={() => setSnack((s) => ({ ...s, visible: false }))}
+        duration={2500}
+        style={{
+          backgroundColor: snack.variant === 'success' ? palette.success : palette.error,
+        }}
+      >
+        {snack.message}
+      </Snackbar>
+    </View>
+  );
+}
+
+function SectionLabel({
+  Icon,
+  text,
+}: {
+  Icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
+  text: string;
+}) {
+  return (
+    <View style={styles.sectionLabel}>
+      <Icon size={16} color={palette.primary} strokeWidth={2} />
+      <Text variant="labelLarge" style={styles.sectionLabelText}>
+        {text}
+      </Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
-  form: { margin: 16, backgroundColor: '#fff', padding: 20, borderRadius: 12 },
-  label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6, marginTop: 16 },
-  input: { backgroundColor: '#F5F7FA', borderRadius: 10, padding: 14, fontSize: 15, borderWidth: 1, borderColor: '#E0E0E0' },
+  root: { flex: 1, backgroundColor: palette.background },
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: 100 },
+
+  header: { padding: 16, paddingBottom: 4, backgroundColor: 'transparent' },
+  headerTitle: { color: palette.onSurface, fontWeight: '700' },
+  headerSubtitle: { color: palette.onSurfaceVariant, marginTop: 2 },
+
+  section: { marginHorizontal: 16, marginTop: 10, backgroundColor: '#fff' },
+  pickerWrap: { marginHorizontal: 16, marginTop: 10 },
+
+  sectionLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  sectionLabelText: { color: palette.onSurface, fontWeight: '700' },
+
+  input: { backgroundColor: '#fff' },
   textArea: { minHeight: 80 },
-  dosenPicker: { flexDirection: 'row', marginVertical: 4 },
-  dosenChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 16, backgroundColor: '#F5F7FA', marginRight: 8, borderWidth: 1, borderColor: '#E0E0E0' },
-  dosenChipActive: { backgroundColor: '#0066CC', borderColor: '#0066CC' },
-  dosenChipText: { fontSize: 13, color: '#666' },
-  dosenChipTextActive: { color: '#fff' },
-  fieldError: { color: '#CC0000', fontSize: 12, marginTop: 4 },
-  submitButton: { backgroundColor: '#0066CC', padding: 16, borderRadius: 10, alignItems: 'center', marginTop: 24 },
-  submitButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  submitBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: palette.outlineVariant,
+  },
+  submitBtn: { borderRadius: 12 },
+  submitContent: { paddingVertical: 6 },
 });

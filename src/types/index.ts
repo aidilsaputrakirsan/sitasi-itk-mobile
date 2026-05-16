@@ -10,9 +10,13 @@ export interface MahasiswaDetail {
 
 export interface DosenDetail {
   id: number;
-  nama: string;
+  nama_dosen: string;
   nip: string;
   email: string;
+  prodi?: string;
+  asal_instansi?: string;
+  jabatan_akademik?: string;
+  is_eksternal?: boolean;
 }
 
 export interface User {
@@ -111,6 +115,29 @@ export type BimbinganStatus = 'created' | 'approved' | 'rejected';
  *   'dosen'     = UserResource(whenLoaded('dosenUser')) → punya `name`
  * Jadi inner field-nya `name`, BUKAN `nama`.
  */
+/**
+ * Backend BimbinganResource kirim `mahasiswa` = UserResource(whenLoaded('user')).
+ * UserResource sendiri include relation `mahasiswa` (MahasiswaResource) jika di-load,
+ * yang punya `nama`, `nim`, `email`. Field di User table sendiri (`name`, `nim`)
+ * sering kosong untuk akun mahasiswa — data sebenarnya di `mahasiswa.mahasiswa.nama`.
+ */
+export interface BimbinganMahasiswaInfo {
+  id: number;
+  /** User.name — bisa kosong */
+  name?: string;
+  /** User.nim — sering kosong untuk mahasiswa, NIM ada di mahasiswa.nim */
+  nim?: string;
+  email?: string;
+  /** Nested Mahasiswa detail (sumber utama nama + NIM mahasiswa) */
+  mahasiswa?: {
+    id: number;
+    nama: string;
+    nim: string;
+    email?: string;
+    nomor_telepon?: string;
+  };
+}
+
 export interface Bimbingan {
   id: number;
   tanggal: string;
@@ -119,7 +146,10 @@ export interface Bimbingan {
   status: BimbinganStatus;
   user_id?: number;
   dosen_id?: number;
-  mahasiswa?: { id: number; name: string; nim?: string; email?: string };
+  mahasiswa?: BimbinganMahasiswaInfo;
+  /** Flat fields dari backend — sumber paling reliable untuk nama + nim mahasiswa */
+  mahasiswa_nama?: string;
+  mahasiswa_nim?: string;
   dosen?: { id: number; name: string; email?: string };
   created_at: string;
   updated_at: string;
@@ -136,15 +166,25 @@ export interface BimbinganRequest {
 
 export type PengajuanTAStatus = 'pending' | 'approved' | 'rejected' | 'revision';
 
+/**
+ * Backend PengajuanTAResource:
+ *   - mahasiswa  = MahasiswaResource  → field `nama`
+ *   - pembimbing = UserResource       → field `name` (BUKAN nama)
+ *   - status workflow tracked via approve_pembimbing1/2
+ */
 export interface PengajuanTA {
   id: number;
   judul: string;
   bidang_penelitian: string;
   status: PengajuanTAStatus;
-  keterangan?: string;
-  pembimbing_1?: { id: number; nama: string };
-  pembimbing_2?: { id: number; nama: string };
+  approve_pembimbing1?: string | null;
+  approve_pembimbing2?: string | null;
+  mahasiswa_id?: number;
   mahasiswa?: { id: number; nama: string; nim: string };
+  pembimbing_1_id?: number;
+  pembimbing_1?: { id: number; name: string };
+  pembimbing_2_id?: number;
+  pembimbing_2?: { id: number; name: string };
   created_at: string;
   updated_at: string;
 }
@@ -431,14 +471,24 @@ export interface KatalogRequest {
 
 // ==================== Notifikasi ====================
 
+/**
+ * Backend NotifikasiResource — struktur aktual:
+ *   { id, type, data (JSON freeform), read (bool), from_id, from (User),
+ *     to_id, display_time, created_at, updated_at }
+ * Tidak ada `title` atau `message` di response. Title/message di-derive
+ * dari `type` + `data` di sisi mobile (lihat utils/notifikasi.ts).
+ */
 export interface Notifikasi {
   id: number;
-  title: string;
-  message: string;
-  type?: string;
-  read_at: string | null;
-  data?: Record<string, unknown>;
+  type: string;
+  data: Record<string, unknown> | null;
+  read: boolean;
+  from_id?: number | null;
+  from?: User | null;
+  to_id?: number;
+  display_time?: string;
   created_at: string;
+  updated_at?: string;
 }
 
 // ==================== Dashboard ====================
