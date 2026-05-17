@@ -12,6 +12,7 @@ import {
 import { usersApi } from '../../api/endpoints/users';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { TabHeader } from '../../components/ui/TabHeader';
 import type { User, PaginationMeta } from '../../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -78,6 +79,7 @@ export function UserManagementScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      <TabHeader title="Kelola User" subtitle="Manajemen akun pengguna" />
       <View style={styles.searchBar}>
         <TextInput
           style={styles.searchInput}

@@ -28,6 +28,7 @@ import { bimbinganApi } from '../../api/endpoints/bimbingan';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { TabHeader } from '../../components/ui/TabHeader';
 import { palette } from '../../theme';
 import type { Bimbingan, PaginationMeta } from '../../types';
 
@@ -85,19 +86,6 @@ export function BimbinganDosenScreen() {
     try {
       const response = await bimbinganApi.list({ page, per_page: 50 });
       if (response.data.success) {
-        // ── DIAGNOSTIC: cek apa yang backend kirim untuk field mahasiswa ──
-        if (response.data.data[0]) {
-          const first = response.data.data[0];
-          console.log('[BimbinganDosen DEBUG] first item raw:', JSON.stringify({
-            id: first.id,
-            user_id: first.user_id,
-            mahasiswa_nama: (first as { mahasiswa_nama?: unknown }).mahasiswa_nama,
-            mahasiswa_nim: (first as { mahasiswa_nim?: unknown }).mahasiswa_nim,
-            mahasiswa_keys: first.mahasiswa ? Object.keys(first.mahasiswa) : 'mahasiswa-null',
-            mahasiswa_name: first.mahasiswa?.name,
-            mahasiswa_nested_nama: first.mahasiswa?.mahasiswa?.nama,
-          }, null, 2));
-        }
         if (append) {
           setItems((prev) => [...prev, ...response.data.data]);
         } else {
@@ -234,8 +222,8 @@ export function BimbinganDosenScreen() {
   if (selectedGroup) {
     return (
       <View style={styles.container}>
-        {/* Header back + nama mahasiswa */}
-        <Surface elevation={0} style={styles.detailHeader}>
+        {/* Header back + nama mahasiswa (custom, sudah include safe area via paddingTop) */}
+        <Surface elevation={0} style={[styles.detailHeader, { paddingTop: 16 + 32 }]}>
           <TouchableRipple
             onPress={() => setSelectedMahasiswaId(null)}
             style={styles.backBtn}
@@ -313,6 +301,7 @@ export function BimbinganDosenScreen() {
   // ── MODE LIST: list mahasiswa (grouped) ───────────────────────────────────
   return (
     <View style={styles.container}>
+      <TabHeader title="Bimbingan" subtitle="Mahasiswa bimbingan & review" />
       <FlatList
         data={mahasiswaGroups}
         keyExtractor={(item) => String(item.userId)}

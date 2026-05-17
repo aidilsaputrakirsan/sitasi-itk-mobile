@@ -31,6 +31,10 @@ export const sidangApi = {
     return api.post<ApiResponse<Sidang>>(`/sidang/${id}/revisi`, data);
   },
 
+  approve(id: number, data: { role: 'pembimbing_1' | 'pembimbing_2' }) {
+    return api.post<ApiResponse<Sidang>>(`/sidang/${id}/approve`, data);
+  },
+
   // Admin action
   updateHasil(id: number, data: { status: SidangStatus }) {
     return api.put<ApiResponse<Sidang>>(`/sidang/${id}/hasil`, data);

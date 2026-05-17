@@ -9,6 +9,7 @@ import {
 import { jadwalApi } from '../../api/endpoints/jadwal';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { TabHeader } from '../../components/ui/TabHeader';
 
 // Field asli dari JadwalSemproResource
 interface RawJadwalSempro {
@@ -90,8 +91,10 @@ export function JadwalAdminScreen() {
   if (loading) return <LoadingScreen />;
 
   return (
-    <SectionList
-      style={styles.container}
+    <View style={styles.container}>
+      <TabHeader title="Jadwal" subtitle="Sempro & Sidang terjadwal" />
+      <SectionList
+      style={styles.listStyle}
       sections={sections}
       keyExtractor={(item) => String(item.id)}
       renderSectionHeader={({ section }) => (
@@ -136,12 +139,14 @@ export function JadwalAdminScreen() {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       contentContainerStyle={sections.length === 0 ? { flex: 1 } : { paddingBottom: 16 }}
       stickySectionHeadersEnabled={false}
-    />
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F7FA' },
+  listStyle: { flex: 1 },
   sectionHeader: {
     fontSize: 16,
     fontWeight: '700',

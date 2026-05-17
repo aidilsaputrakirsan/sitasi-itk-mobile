@@ -1,10 +1,38 @@
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Text } from 'react-native';
+import LottieView from 'lottie-react-native';
+import { palette } from '../../theme';
 
-export function LoadingScreen() {
+interface LoadingScreenProps {
+  message?: string;
+  /** Optional Lottie source. Jika tidak diberikan & file default tidak ada, fallback ke ActivityIndicator. */
+  lottieSource?: any;
+  size?: number;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const defaultLottie = require('../../../assets/lottie/loading.json');
+
+export function LoadingScreen({
+  message,
+  lottieSource,
+  size = 140,
+}: LoadingScreenProps) {
+  const source = lottieSource ?? defaultLottie;
+
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color="#0066CC" />
+      {source ? (
+        <LottieView
+          source={source}
+          autoPlay
+          loop
+          style={{ width: size, height: size }}
+        />
+      ) : (
+        <ActivityIndicator size="large" color={palette.primary} />
+      )}
+      {message ? <Text style={styles.text}>{message}</Text> : null}
     </View>
   );
 }
@@ -14,6 +42,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: palette.background,
+  },
+  text: {
+    marginTop: 8,
+    fontSize: 14,
+    color: palette.onSurfaceVariant,
   },
 });

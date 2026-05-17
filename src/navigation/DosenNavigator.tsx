@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, ClipboardCheck, GraduationCap, UserRound } from 'lucide-react-native';
 import { DashboardScreen } from '../screens/common/DashboardScreen';
 import { BimbinganDosenScreen } from '../screens/dosen/BimbinganDosenScreen';
-import { SemproDosenScreen } from '../screens/dosen/SemproDosenScreen';
+import { AkademikDosenScreen } from '../screens/dosen/AkademikDosenScreen';
 import { ProfileScreen } from '../screens/common/ProfileScreen';
 import { useNotificationCount } from '../hooks/useNotification';
 import { CustomTabBar } from '../components/ui/CustomTabBar';
@@ -39,7 +39,7 @@ export function DosenNavigator() {
       />
       <Tab.Screen
         name="AkademikTab"
-        component={SemproDosenScreen}
+        component={AkademikDosenScreen}
         options={{
           tabBarLabel: 'Akademik',
           tabBarIcon: ({ color, focused }) => <TabIcon Icon={GraduationCap} color={color} focused={focused} />,

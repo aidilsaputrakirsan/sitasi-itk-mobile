@@ -27,6 +27,7 @@ import {
   Phone,
 } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../stores/authStore';
 import { usersApi } from '../../api/endpoints/users';
 import { authApi } from '../../api/endpoints/auth';
@@ -36,6 +37,7 @@ import { getUserDisplayName, getUserIdentifier, getUserRoleLabel } from '../../u
 type SnackState = { visible: boolean; message: string; variant: 'success' | 'error' };
 
 export function ProfileScreen() {
+  const insets = useSafeAreaInsets();
   const { user, refreshUser, logout } = useAuthStore();
   const [uploading, setUploading] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -124,7 +126,7 @@ export function ProfileScreen() {
     <View style={styles.root}>
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Header dengan gradient warna primary */}
-        <Surface elevation={0} style={styles.header}>
+        <Surface elevation={0} style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <Pressable onPress={handleUploadPhoto} disabled={uploading} style={styles.avatarWrap}>
             {user.photo ? (
               <Avatar.Image size={96} source={{ uri: user.photo }} />
@@ -376,7 +378,6 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 32 },
   header: {
     alignItems: 'center',
-    paddingTop: 48,
     paddingBottom: 24,
     backgroundColor: palette.primary,
     borderBottomLeftRadius: 24,

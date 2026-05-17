@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, RefreshControl, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, RefreshControl } from 'react-native';
 import { Card, Surface, Text, TouchableRipple, Button, Chip, ProgressBar } from 'react-native-paper';
 import {
   ArrowRight,
@@ -22,12 +22,14 @@ import {
   UsersRound,
   type LucideIcon,
 } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../stores/authStore';
 import { dashboardApi } from '../../api/endpoints/dashboard';
 import { useNotificationCount } from '../../hooks/useNotification';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { AnimatedLogo } from '../../components/ui/AnimatedLogo';
 import { palette } from '../../theme';
 import { getUserDisplayName, getUserIdentifier } from '../../utils/userDisplay';
 import sitasiLogo from '../../../assets/logo-sitasi.webp';
@@ -104,6 +106,7 @@ function countdownLabel(iso?: string): string {
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export function DashboardScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const user = useAuthStore((s) => s.user);
   const getPrimaryRole = useAuthStore((s) => s.getPrimaryRole);
   const { unreadCount } = useNotificationCount();
@@ -164,7 +167,7 @@ export function DashboardScreen({ navigation }: Props) {
       }
     >
       {/* Welcome dengan logo */}
-      <Surface elevation={0} style={styles.welcome}>
+      <Surface elevation={0} style={[styles.welcome, { marginTop: insets.top + 12 }]}>
         <View style={{ flex: 1 }}>
           <Text variant="bodySmall" style={styles.greeting}>
             Halo,
@@ -176,9 +179,7 @@ export function DashboardScreen({ navigation }: Props) {
             {roleLabel}
           </Text>
         </View>
-        <Surface elevation={0} style={styles.logoFrame}>
-          <Image source={sitasiLogo} style={styles.logoImage} resizeMode="contain" />
-        </Surface>
+        <AnimatedLogo source={sitasiLogo} size={72} />
       </Surface>
 
       {/* Notifikasi banner */}
@@ -882,16 +883,6 @@ const styles = StyleSheet.create({
   greeting: { color: 'rgba(255,255,255,0.85)' },
   userName: { color: '#fff', fontWeight: '700', marginTop: 2 },
   roleText: { color: 'rgba(255,255,255,0.85)', marginTop: 4 },
-  logoFrame: {
-    width: 56,
-    height: 56,
-    borderRadius: 14,
-    backgroundColor: '#fff',
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoImage: { width: '100%', height: '100%' },
 
   notifBanner: {
     marginHorizontal: 16,

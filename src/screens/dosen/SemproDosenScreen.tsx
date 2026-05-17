@@ -1,18 +1,29 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { View, StyleSheet, FlatList, RefreshControl } from 'react-native';
 import {
-  View,
+  Button,
+  Card,
+  Chip,
+  Dialog,
+  Portal,
+  Snackbar,
+  Surface,
   Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  Alert,
-} from 'react-native';
+} from 'react-native-paper';
+import {
+  BookOpenCheck,
+  Calendar,
+  Check,
+  ClipboardCheck,
+  ClipboardEdit,
+  Presentation,
+} from 'lucide-react-native';
 import { semproApi } from '../../api/endpoints/sempro';
 import { penilaianApi } from '../../api/endpoints/penilaian';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { palette } from '../../theme';
 import type { PenilaianListItemSempro, PenilaianListType } from '../../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
@@ -23,7 +34,6 @@ interface Props {
 
 type RevisiRole = 'pembimbing_1' | 'pembimbing_2' | 'penguji_1' | 'penguji_2';
 
-/** Field revisi pada sempro yang sesuai dengan role dosen yang sedang login */
 function revisiFieldFor(role: RevisiRole): keyof PenilaianListItemSempro {
   return `revisi_${role}` as keyof PenilaianListItemSempro;
 }
@@ -38,7 +48,9 @@ function formatTanggal(iso?: string): string {
   if (!iso) return '-';
   try {
     return new Date(iso).toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'short', year: 'numeric',
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
     });
   } catch {
     return '-';
@@ -51,14 +63,30 @@ export function SemproDosenScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Confirm dialog state — dipakai untuk 2 mode: revisi atau approve-pendaftaran
+  const [confirmItem, setConfirmItem] = useState<PenilaianListItemSempro | null>(null);
+  const [confirmMode, setConfirmMode] = useState<'revisi' | 'approve'>('revisi');
+  const [submittingRevisi, setSubmittingRevisi] = useState(false);
+  const [snack, setSnack] = useState<{ visible: boolean; message: string; variant: 'success' | 'error' }>({
+    visible: false,
+    message: '',
+    variant: 'success',
+  });
+
+  const showSnack = (message: string, variant: 'success' | 'error') =>
+    setSnack({ visible: true, message, variant });
+
   const fetchData = useCallback(async (type: PenilaianListType) => {
     try {
       const response = await penilaianApi.listSempro(type);
       if (response.data.success) {
         setItems(response.data.data);
       }
-    } catch { /* silent */ } finally {
-      setLoading(false); setRefreshing(false);
+    } catch {
+      /* silent */
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -67,26 +95,31 @@ export function SemproDosenScreen({ navigation }: Props) {
     fetchData(filter);
   }, [fetchData, filter]);
 
-  const onRefresh = () => { setRefreshing(true); fetchData(filter); };
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchData(filter);
+  };
 
-  const handleSetujuiRevisi = (id: number, role: RevisiRole) => {
-    Alert.alert(
-      'Setujui Revisi',
-      `Setujui hasil revisi sempro mahasiswa sebagai ${role.replace(/_/g, ' ')}?`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Ya, Setujui', onPress: async () => {
-            try {
-              await semproApi.submitRevisi(id, { role, status: true });
-              fetchData(filter);
-            } catch (err: unknown) {
-              Alert.alert('Gagal', (err as { message?: string }).message ?? 'Gagal setujui revisi');
-            }
-          },
-        },
-      ],
-    );
+  const submitConfirm = async () => {
+    if (!confirmItem) return;
+    const role = confirmItem.my_role as RevisiRole;
+    setSubmittingRevisi(true);
+    try {
+      if (confirmMode === 'approve') {
+        // Hanya pembimbing yang bisa approve pendaftaran sempro
+        await semproApi.approve(confirmItem.id, { role });
+        showSnack('Pendaftaran sempro berhasil disetujui', 'success');
+      } else {
+        await semproApi.submitRevisi(confirmItem.id, { role, status: true });
+        showSnack('Revisi berhasil disetujui', 'success');
+      }
+      setConfirmItem(null);
+      fetchData(filter);
+    } catch (err: unknown) {
+      showSnack((err as { message?: string }).message ?? 'Gagal memproses', 'error');
+    } finally {
+      setSubmittingRevisi(false);
+    }
   };
 
   if (loading && !refreshing) {
@@ -101,212 +134,354 @@ export function SemproDosenScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <FilterTabs current={filter} onChange={setFilter} />
+
       <FlatList
         data={items}
         keyExtractor={(item) => String(item.id)}
-        renderItem={({ item }) => {
-          const nama = item.user?.name ?? 'Mahasiswa tidak diketahui';
-          const nim = item.user?.nim;
-          const periode = item.periode?.periode;
-          const tanggal = formatTanggal(item.tanggal ?? item.created_at);
-          const isPembimbing = item.is_pembimbing;
-
-          return (
-            <View style={styles.card}>
-              {/* Role badge — paling atas, biar dosen langsung tau perannya */}
-              <View style={[styles.roleBadge, isPembimbing ? styles.roleBimbingan : styles.roleUji]}>
-                <Text style={[styles.roleBadgeText, isPembimbing ? styles.roleBimbinganText : styles.roleUjiText]}>
-                  {isPembimbing ? '👨‍🏫' : '🧑‍⚖️'}  {item.my_role_label}
-                </Text>
-              </View>
-
-              {/* Header: nama mahasiswa + status */}
-              <View style={styles.cardHeader}>
-                <View style={styles.headerLeft}>
-                  <Text style={styles.mhsName} numberOfLines={1}>{nama}</Text>
-                  {nim ? <Text style={styles.mhsNim}>NIM {nim}</Text> : null}
-                </View>
-                <StatusBadge status={item.status} />
-              </View>
-
-              {/* Meta info */}
-              <View style={styles.metaRow}>
-                {periode ? (
-                  <View style={styles.metaItem}>
-                    <Text style={styles.metaLabel}>Periode</Text>
-                    <Text style={styles.metaValue} numberOfLines={1}>{periode}</Text>
-                  </View>
-                ) : null}
-                <View style={styles.metaItem}>
-                  <Text style={styles.metaLabel}>Tanggal</Text>
-                  <Text style={styles.metaValue}>{tanggal}</Text>
-                </View>
-              </View>
-
-              {/* Action buttons — sejajar: Setujui Revisi & Beri Nilai */}
-              {(() => {
-                const myRole = item.my_role as RevisiRole;
-                const myRevisiDone = !!item[revisiFieldFor(myRole)];
-                return (
-                  <View style={styles.actionRow}>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, myRevisiDone ? styles.revisiDoneBtn : styles.revisiBtn]}
-                      onPress={() => {
-                        if (myRevisiDone) {
-                          Alert.alert('Revisi Disetujui', 'Anda sudah menyetujui revisi mahasiswa ini.');
-                          return;
-                        }
-                        handleSetujuiRevisi(item.id, myRole);
-                      }}
-                    >
-                      <Text style={[styles.actionBtnText, myRevisiDone ? styles.revisiDoneBtnText : styles.revisiBtnText]}>
-                        {myRevisiDone ? '✓  Revisi Disetujui' : '✍️  Setujui Revisi'}
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.actionBtn, styles.nilaiBtn]}
-                      onPress={() =>
-                        navigation.navigate('PenilaianForm', {
-                          type: 'sempro',
-                          targetId: item.id,
-                          mahasiswaName: nama,
-                        })
-                      }
-                    >
-                      <Text style={styles.nilaiBtnText}>📝  Beri Nilai</Text>
-                    </TouchableOpacity>
-                  </View>
-                );
-              })()}
-            </View>
-          );
-        }}
+        renderItem={({ item }) => (
+          <SemproCard
+            item={item}
+            onApprove={() => {
+              setConfirmMode('approve');
+              setConfirmItem(item);
+            }}
+            onSetujuiRevisi={() => {
+              setConfirmMode('revisi');
+              setConfirmItem(item);
+            }}
+            onBeriNilai={() =>
+              navigation.navigate('PenilaianForm', {
+                type: 'sempro',
+                targetId: item.id,
+                mahasiswaName: item.user?.name ?? 'Mahasiswa',
+              })
+            }
+          />
+        )}
         ListEmptyComponent={
           <EmptyState
             message={
-              filter === 'bimbingan' ? 'Belum ada mahasiswa bimbingan sempro'
-                : filter === 'uji' ? 'Belum ada mahasiswa yang diuji'
+              filter === 'bimbingan'
+                ? 'Belum ada mahasiswa bimbingan sempro'
+                : filter === 'uji'
+                ? 'Belum ada mahasiswa yang diuji'
                 : 'Belum ada data sempro'
             }
           />
         }
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        contentContainerStyle={items.length === 0 ? { flex: 1 } : { padding: 16 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[palette.primary]} />
+        }
+        contentContainerStyle={items.length === 0 ? styles.emptyContent : styles.listContent}
       />
+
+      {/* Confirm dialog: revisi atau approve-pendaftaran */}
+      <Portal>
+        <Dialog visible={!!confirmItem} onDismiss={() => !submittingRevisi && setConfirmItem(null)}>
+          <Dialog.Title style={styles.dialogTitle}>
+            {confirmMode === 'approve' ? 'Setujui Pendaftaran Sempro' : 'Setujui Revisi Sempro'}
+          </Dialog.Title>
+          <Dialog.Content>
+            <Text variant="bodyMedium" style={styles.dialogText}>
+              {confirmMode === 'approve'
+                ? 'Anda akan menyetujui pendaftaran seminar proposal mahasiswa '
+                : 'Anda akan menyetujui hasil revisi seminar proposal mahasiswa '}
+              <Text style={{ fontWeight: '700' }}>
+                {confirmItem?.user?.name ?? '-'}
+              </Text>
+              {' sebagai '}
+              <Text style={{ fontWeight: '700' }}>
+                {confirmItem?.my_role_label}
+              </Text>
+              {'. Tindakan ini tidak dapat dibatalkan.'}
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setConfirmItem(null)} disabled={submittingRevisi}>
+              Batal
+            </Button>
+            <Button
+              mode="contained"
+              onPress={submitConfirm}
+              loading={submittingRevisi}
+              disabled={submittingRevisi}
+              buttonColor={palette.success}
+            >
+              {confirmMode === 'approve' ? 'Setujui Pendaftaran' : 'Setujui Revisi'}
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+
+      <Snackbar
+        visible={snack.visible}
+        onDismiss={() => setSnack((s) => ({ ...s, visible: false }))}
+        duration={2500}
+        style={{ backgroundColor: snack.variant === 'success' ? palette.success : palette.error }}
+      >
+        {snack.message}
+      </Snackbar>
     </View>
   );
 }
 
-function FilterTabs({ current, onChange }: { current: PenilaianListType; onChange: (t: PenilaianListType) => void }) {
+function SemproCard({
+  item,
+  onApprove,
+  onSetujuiRevisi,
+  onBeriNilai,
+}: {
+  item: PenilaianListItemSempro;
+  onApprove: () => void;
+  onSetujuiRevisi: () => void;
+  onBeriNilai: () => void;
+}) {
+  const nama = item.user?.name ?? 'Mahasiswa tidak diketahui';
+  const nim = item.user?.nim;
+  const periode = item.periode?.periode;
+  const tanggal = formatTanggal(item.tanggal ?? item.created_at);
+  const isPembimbing = item.is_pembimbing;
+  const myRole = item.my_role as RevisiRole;
+  const myRevisiDone = !!item[revisiFieldFor(myRole)];
+  const initial = nama.split(/\s+/).slice(0, 2).map((s) => s.charAt(0).toUpperCase()).join('') || 'M';
+
+  // Approve persetujuan sempro (hanya untuk pembimbing yang belum approve).
+  const myApprove = isPembimbing
+    ? (myRole === 'pembimbing_1'
+        ? item.approve_pembimbing_1
+        : item.approve_pembimbing_2)
+    : null;
+  const needsApprove = isPembimbing && !myApprove;
+
   return (
-    <View style={styles.tabBar}>
-      {FILTER_TABS.map((t) => {
-        const active = t.key === current;
-        return (
-          <TouchableOpacity
-            key={t.key}
-            style={[styles.tab, active && styles.tabActive]}
-            onPress={() => onChange(t.key)}
+    <Card mode="elevated" style={styles.card}>
+      <Card.Content style={{ paddingVertical: 14 }}>
+        {/* Role badge */}
+        <View style={styles.roleRow}>
+          <Chip
+            compact
+            icon={() =>
+              isPembimbing ? (
+                <BookOpenCheck size={12} color={palette.primary} strokeWidth={2.4} />
+              ) : (
+                <ClipboardEdit size={12} color={palette.tertiary} strokeWidth={2.4} />
+              )
+            }
+            style={[styles.roleChip, isPembimbing ? styles.roleChipBimbingan : styles.roleChipUji]}
+            textStyle={[
+              styles.roleChipText,
+              isPembimbing ? styles.roleChipTextBimbingan : styles.roleChipTextUji,
+            ]}
+            showSelectedCheck={false}
           >
-            <Text style={[styles.tabText, active && styles.tabTextActive]}>{t.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
+            {item.my_role_label}
+          </Chip>
+        </View>
+
+        {/* Header: avatar + nama + status */}
+        <View style={styles.cardHeader}>
+          <Surface elevation={0} style={styles.avatar}>
+            <Text variant="titleMedium" style={styles.avatarText}>
+              {initial}
+            </Text>
+          </Surface>
+          <View style={{ flex: 1 }}>
+            <Text variant="titleSmall" style={styles.mhsName} numberOfLines={1}>
+              {nama}
+            </Text>
+            {nim && (
+              <Text variant="labelSmall" style={styles.mhsNim}>
+                NIM {nim}
+              </Text>
+            )}
+          </View>
+          <StatusBadge status={item.status} />
+        </View>
+
+        {/* Meta */}
+        <View style={styles.metaRow}>
+          {periode && (
+            <View style={styles.metaItem}>
+              <Text variant="labelSmall" style={styles.metaLabel}>
+                PERIODE
+              </Text>
+              <Text variant="bodySmall" style={styles.metaValue} numberOfLines={1}>
+                {periode}
+              </Text>
+            </View>
+          )}
+          <View style={styles.metaItem}>
+            <View style={styles.metaRowInner}>
+              <Calendar size={12} color={palette.onSurfaceVariant} strokeWidth={2} />
+              <Text variant="labelSmall" style={styles.metaLabel}>
+                TANGGAL
+              </Text>
+            </View>
+            <Text variant="bodySmall" style={styles.metaValue}>
+              {tanggal}
+            </Text>
+          </View>
+        </View>
+
+        {/* Actions — conditional berdasarkan tahap workflow */}
+        {needsApprove ? (
+          <View>
+            <Surface elevation={0} style={styles.notice}>
+              <Text variant="bodySmall" style={styles.noticeText}>
+                Mahasiswa menunggu persetujuan Anda sebelum sempro dapat dilaksanakan.
+              </Text>
+            </Surface>
+            <Button
+              mode="contained"
+              onPress={onApprove}
+              icon={({ size, color }) => <Check size={size} color={color} strokeWidth={2.4} />}
+              buttonColor={palette.tertiary}
+              contentStyle={styles.actionContent}
+              style={styles.fullActionBtn}
+            >
+              Setujui Pendaftaran Sempro
+            </Button>
+          </View>
+        ) : (
+          <View style={styles.actionRow}>
+            <Button
+              mode={myRevisiDone ? 'contained-tonal' : 'outlined'}
+              onPress={() => {
+                if (myRevisiDone) return;
+                onSetujuiRevisi();
+              }}
+              disabled={myRevisiDone}
+              icon={({ size, color }) =>
+                myRevisiDone ? (
+                  <Check size={size} color={color} strokeWidth={2.4} />
+                ) : (
+                  <ClipboardCheck size={size} color={color} strokeWidth={2} />
+                )
+              }
+              buttonColor={myRevisiDone ? palette.successContainer : undefined}
+              textColor={myRevisiDone ? palette.success : palette.warning}
+              style={[styles.actionBtn, { borderColor: palette.warningContainer }]}
+              contentStyle={styles.actionContent}
+              compact
+            >
+              {myRevisiDone ? 'Revisi Disetujui' : 'Setujui Revisi'}
+            </Button>
+            <Button
+              mode="contained"
+              onPress={onBeriNilai}
+              icon={({ size, color }) => <Presentation size={size} color={color} strokeWidth={2} />}
+              style={styles.actionBtn}
+              contentStyle={styles.actionContent}
+              compact
+            >
+              Beri Nilai
+            </Button>
+          </View>
+        )}
+      </Card.Content>
+    </Card>
+  );
+}
+
+function FilterTabs({
+  current,
+  onChange,
+}: {
+  current: PenilaianListType;
+  onChange: (t: PenilaianListType) => void;
+}) {
+  return (
+    <View style={styles.filterRow}>
+      {FILTER_TABS.map((t) => (
+        <Chip
+          key={t.key}
+          selected={t.key === current}
+          onPress={() => onChange(t.key)}
+          style={[styles.filterChip, t.key === current && styles.filterChipActive]}
+          textStyle={[styles.filterText, t.key === current && styles.filterTextActive]}
+          showSelectedCheck={false}
+          compact
+        >
+          {t.label}
+        </Chip>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
+  container: { flex: 1, backgroundColor: palette.background },
 
-  tabBar: {
+  filterRow: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8ECF0',
-  },
-  tab: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    backgroundColor: '#F0F2F5',
-    alignItems: 'center',
-  },
-  tabActive: { backgroundColor: '#0066CC' },
-  tabText: { fontSize: 12, fontWeight: '600', color: '#666' },
-  tabTextActive: { color: '#fff' },
-
-  card: {
     backgroundColor: '#fff',
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.outlineVariant,
   },
+  filterChip: { backgroundColor: '#fff', borderColor: palette.outline, flex: 1 },
+  filterChipActive: { backgroundColor: palette.primary, borderColor: palette.primary },
+  filterText: { color: palette.onSurfaceVariant, fontSize: 12, textAlign: 'center' },
+  filterTextActive: { color: '#fff', fontWeight: '700' },
 
-  roleBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 10,
-  },
-  roleBimbingan: { backgroundColor: '#E3F2FD' },
-  roleUji: { backgroundColor: '#FFF3E0' },
-  roleBadgeText: { fontSize: 11, fontWeight: '700' },
-  roleBimbinganText: { color: '#1565C0' },
-  roleUjiText: { color: '#E65100' },
+  listContent: { padding: 16, paddingBottom: 24 },
+  emptyContent: { flex: 1, justifyContent: 'center' },
+
+  card: { marginBottom: 10, backgroundColor: '#fff', borderRadius: 12 },
+
+  roleRow: { flexDirection: 'row', marginBottom: 10 },
+  roleChip: { height: 28, alignSelf: 'flex-start' },
+  roleChipBimbingan: { backgroundColor: palette.primaryContainer },
+  roleChipUji: { backgroundColor: palette.tertiaryContainer },
+  roleChipText: { fontSize: 11, fontWeight: '700' },
+  roleChipTextBimbingan: { color: palette.primary },
+  roleChipTextUji: { color: '#78350f' },
 
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 12,
     marginBottom: 12,
-    gap: 8,
   },
-  headerLeft: { flex: 1 },
-  mhsName: { fontSize: 16, fontWeight: '700', color: '#1A1A1A' },
-  mhsNim: { fontSize: 12, color: '#888', marginTop: 2 },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { color: '#fff', fontWeight: '800' },
+  mhsName: { color: palette.onSurface, fontWeight: '700' },
+  mhsNim: { color: palette.onSurfaceVariant, marginTop: 2 },
 
   metaRow: {
     flexDirection: 'row',
-    backgroundColor: '#F5F7FA',
+    backgroundColor: palette.surfaceVariant,
     borderRadius: 10,
     padding: 10,
     marginBottom: 12,
     gap: 12,
   },
   metaItem: { flex: 1 },
-  metaLabel: { fontSize: 10, color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600' },
-  metaValue: { fontSize: 13, color: '#333', marginTop: 2, fontWeight: '500' },
+  metaRowInner: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaLabel: { color: palette.onSurfaceVariant, letterSpacing: 0.6, fontWeight: '700' },
+  metaValue: { color: palette.onSurface, fontWeight: '600', marginTop: 2 },
 
-  actionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-  },
-  actionBtn: {
-    flex: 1,
-    paddingVertical: 12,
+  actionRow: { flexDirection: 'row', gap: 8 },
+  actionBtn: { flex: 1, borderRadius: 10 },
+  fullActionBtn: { borderRadius: 10 },
+  actionContent: { paddingVertical: 4 },
+  notice: {
+    backgroundColor: palette.tertiaryContainer,
+    padding: 10,
     borderRadius: 10,
-    alignItems: 'center',
-    borderWidth: 1,
+    marginBottom: 10,
   },
-  actionBtnText: { fontSize: 13, fontWeight: '700' },
+  noticeText: { color: '#78350f', lineHeight: 19 },
 
-  revisiBtn: { backgroundColor: '#FFF8E1', borderColor: '#FFB300' },
-  revisiBtnText: { color: '#E65100' },
-  revisiDoneBtn: { backgroundColor: '#E8F5E9', borderColor: '#A5D6A7' },
-  revisiDoneBtnText: { color: '#2E7D32' },
-
-  nilaiBtn: { backgroundColor: '#0066CC', borderColor: '#0066CC' },
-  nilaiBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  dialogTitle: { color: palette.onSurface, fontWeight: '700' },
+  dialogText: { color: palette.onSurface, lineHeight: 22 },
 });

@@ -4,11 +4,11 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Image,
 } from 'react-native';
 import { Button, Card, HelperText, Surface, Text, TextInput } from 'react-native-paper';
 import { AtSign, Eye, EyeOff, Lock, LogIn, ShieldAlert } from 'lucide-react-native';
 import sitasiLogo from '../../../assets/logo-sitasi.webp';
+import { AnimatedLogo } from '../../components/ui/AnimatedLogo';
 import { useAuthStore } from '../../stores/authStore';
 import { palette } from '../../theme';
 
@@ -34,9 +34,7 @@ export function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Hero */}
         <Surface elevation={0} style={styles.hero}>
-          <Surface elevation={3} style={styles.logoBadge}>
-            <Image source={sitasiLogo} style={styles.logoImage} resizeMode="contain" />
-          </Surface>
+          <AnimatedLogo source={sitasiLogo} size={120} style={styles.logoSpacing} />
           <Text variant="headlineMedium" style={styles.title}>
             SITASI ITK
           </Text>
@@ -152,17 +150,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     backgroundColor: 'transparent',
   },
-  logoBadge: {
-    width: 96,
-    height: 96,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    padding: 12,
-  },
-  logoImage: { width: '100%', height: '100%' },
+  logoSpacing: { marginBottom: 16 },
   title: {
     color: palette.primaryDark,
     fontWeight: '800',

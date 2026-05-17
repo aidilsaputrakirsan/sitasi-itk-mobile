@@ -14,6 +14,7 @@ import { bimbinganApi } from '../../api/endpoints/bimbingan';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { TabHeader } from '../../components/ui/TabHeader';
 import { palette } from '../../theme';
 import type { Bimbingan, BimbinganStatus, PaginationMeta } from '../../types';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -86,6 +87,7 @@ export function BimbinganScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
+      <TabHeader title="Bimbingan" subtitle="Catatan & status bimbingan TA" />
       {/* Filter chips */}
       <View style={styles.filterRow}>
         {filters.map((f) => (

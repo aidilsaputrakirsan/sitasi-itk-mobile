@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Home, ClipboardList, GraduationCap, UserRound } from 'lucide-react-native';
 import { DashboardScreen } from '../screens/common/DashboardScreen';
 import { BimbinganScreen } from '../screens/mahasiswa/BimbinganScreen';
-import { SemproScreen } from '../screens/mahasiswa/SemproScreen';
+import { AkademikScreen } from '../screens/mahasiswa/AkademikScreen';
 import { ProfileScreen } from '../screens/common/ProfileScreen';
 import { useNotificationCount } from '../hooks/useNotification';
 import { CustomTabBar } from '../components/ui/CustomTabBar';
@@ -39,7 +39,7 @@ export function MahasiswaNavigator() {
       />
       <Tab.Screen
         name="AkademikTab"
-        component={SemproScreen}
+        component={AkademikScreen}
         options={{
           tabBarLabel: 'Akademik',
           tabBarIcon: ({ color, focused }) => <TabIcon Icon={GraduationCap} color={color} focused={focused} />,

@@ -1,17 +1,27 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import {
-  View,
+  Button,
+  Card,
+  HelperText,
+  Snackbar,
+  Surface,
   Text,
-  StyleSheet,
-  ScrollView,
   TextInput,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+} from 'react-native-paper';
+import {
+  Award,
+  CheckCircle2,
+  FileText,
+  GraduationCap,
+  Pencil,
+  Save,
+  TriangleAlert,
+} from 'lucide-react-native';
 import { penilaianApi } from '../../api/endpoints/penilaian';
 import { LoadingScreen } from '../../components/ui/LoadingScreen';
 import { ErrorMessage } from '../../components/ui/ErrorMessage';
+import { palette } from '../../theme';
 import type {
   PenilaianRole,
   PenilaianSemproForm,
@@ -23,9 +33,6 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'PenilaianForm'>;
-
-// ── Definisi field per kriteria ────────────────────────────────────────────────
-// Bobot ini hanya untuk display; kalkulasi resmi datang dari server (formatNilai*)
 
 type FieldDef = { key: keyof PenilaianSidangForm; label: string };
 
@@ -100,7 +107,6 @@ const KRITERIA_SIDANG: { title: string; bobot: number; fields: FieldDef[]; pembi
   },
 ];
 
-// Default state — all empty strings (kalau belum diisi)
 const EMPTY_SEMPRO: Record<keyof PenilaianSemproForm, string> = {
   struktur_sistematika: '',
   kepatuhan_format: '',
@@ -138,13 +144,18 @@ export function PenilaianFormScreen({ route, navigation }: Props) {
   const [semproData, setSemproData] = useState<PenilaianSemproShowResponse | null>(null);
   const [sidangData, setSidangData] = useState<PenilaianSidangShowResponse | null>(null);
 
-  // Form state — pakai string supaya TextInput kontrol penuh
   const [values, setValues] = useState<Record<string, string>>(
     isSidang ? { ...EMPTY_SIDANG } : { ...EMPTY_SEMPRO }
   );
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  const [snack, setSnack] = useState<{ visible: boolean; message: string; variant: 'success' | 'error' }>({
+    visible: false,
+    message: '',
+    variant: 'success',
+  });
+  const showSnack = (message: string, variant: 'success' | 'error') =>
+    setSnack({ visible: true, message, variant });
 
-  // ── Load data ────────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -199,9 +210,10 @@ export function PenilaianFormScreen({ route, navigation }: Props) {
     }
   }, [isSidang, targetId]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  // ── Header info ──────────────────────────────────────────────────────────────
   const header = useMemo(() => {
     if (isSidang && sidangData) {
       return {
@@ -228,7 +240,6 @@ export function PenilaianFormScreen({ route, navigation }: Props) {
     return null;
   }, [isSidang, semproData, sidangData]);
 
-  // ── Hitung total nilai (preview lokal) ───────────────────────────────────────
   const totalPreview = useMemo(() => {
     const num = (k: string) => {
       const v = parseFloat(values[k]);
@@ -241,16 +252,12 @@ export function PenilaianFormScreen({ route, navigation }: Props) {
       const k4 = (num('etika_komunikasi') + num('kemandirian_daya_juang')) / 2;
 
       if (header?.isPembimbing) {
-        // Bobot pembimbing: 10/20/55/15
         const total = (k1 * 10 + k2 * 20 + k3 * 55 + k4 * 15) / 100;
         return { k1, k2, k3, k4, total };
       }
-      // Bobot penguji (tanpa K4): rasio 10/20/55 dari total 85
       const total = (k1 * 10 + k2 * 20 + k3 * 55) / 85;
       return { k1, k2, k3, k4: null, total };
     }
-
-    // Sempro
     const k1 = (num('struktur_sistematika') + num('kepatuhan_format')) / 2;
     const k2 = (num('media_presentasi') + num('komunikasi_verbal') + num('komunikasi_nonverbal')) / 3;
     const k3 = (num('pemahaman_materi') + num('rumusan_masalah') + num('relevansi_metode') + num('kelayakan_rencana') + num('relevansi_luaran')) / 5;
@@ -258,9 +265,7 @@ export function PenilaianFormScreen({ route, navigation }: Props) {
     return { k1, k2, k3, k4: null, total };
   }, [values, isSidang, header]);
 
-  // ── Handlers ─────────────────────────────────────────────────────────────────
   const setField = (key: string, raw: string) => {
-    // Allow only digits + optional decimal
     const sanitized = raw.replace(/[^0-9.]/g, '');
     setValues((prev) => ({ ...prev, [key]: sanitized }));
     if (errors[key]) {
@@ -297,14 +302,16 @@ export function PenilaianFormScreen({ route, navigation }: Props) {
 
   const handleSubmit = async () => {
     if (!header?.periodeAktif) {
-      Alert.alert('Periode Tidak Aktif', `Tidak ada periode ${isSidang ? 'Sidang TA' : 'Seminar Proposal'} yang aktif. Penilaian ditutup.`);
+      showSnack(
+        `Periode ${isSidang ? 'Sidang TA' : 'Seminar Proposal'} tidak aktif`,
+        'error'
+      );
       return;
     }
     if (!validateLocal()) {
-      Alert.alert('Form belum lengkap', 'Silakan periksa kembali field yang ditandai.');
+      showSnack('Periksa kembali field yang ditandai', 'error');
       return;
     }
-
     setSubmitting(true);
     setErrors({});
     try {
@@ -339,238 +346,358 @@ export function PenilaianFormScreen({ route, navigation }: Props) {
         };
         await penilaianApi.storeSempro(targetId, payload);
       }
-      Alert.alert(
-        'Berhasil',
-        header?.editing ? 'Penilaian berhasil diperbarui' : 'Penilaian berhasil disimpan',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      showSnack(header?.editing ? 'Penilaian berhasil diperbarui' : 'Penilaian berhasil disimpan', 'success');
+      setTimeout(() => navigation.goBack(), 900);
     } catch (err: unknown) {
       const e = err as { message?: string; errors?: Record<string, string[]> };
       if (e.errors) setErrors(e.errors);
-      Alert.alert('Gagal', e.message ?? 'Terjadi kesalahan saat menyimpan');
+      showSnack(e.message ?? 'Terjadi kesalahan', 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ── Render ───────────────────────────────────────────────────────────────────
   if (loading) return <LoadingScreen />;
   if (error || !header) {
     return <ErrorMessage message={error ?? 'Data tidak tersedia'} onRetry={fetchData} />;
   }
 
   const kriteriaList = isSidang ? KRITERIA_SIDANG : KRITERIA_SEMPRO;
+  const disabled = submitting || !header.periodeAktif;
 
   return (
-    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
-      {/* Header info */}
-      <View style={styles.headerCard}>
-        <Text style={styles.headerType}>
-          Penilaian {isSidang ? 'Sidang TA' : 'Seminar Proposal'}
-        </Text>
-        <Text style={styles.headerName}>{header.mahasiswa}</Text>
-        <Text style={styles.headerNim}>NIM: {header.nim}</Text>
-        {header.judul && (
-          <Text style={styles.headerJudul} numberOfLines={3}>{header.judul}</Text>
-        )}
-        <View style={styles.roleRow}>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>Sebagai {ROLE_LABEL[header.role]}</Text>
-          </View>
-          {header.editing && (
-            <View style={[styles.roleBadge, styles.editBadge]}>
-              <Text style={styles.editBadgeText}>Edit</Text>
-            </View>
-          )}
-        </View>
-        {!header.periodeAktif && (
-          <View style={styles.warnBox}>
-            <Text style={styles.warnText}>
-              ⚠️ Periode {isSidang ? 'Sidang TA' : 'Seminar Proposal'} tidak aktif. Penilaian tidak dapat disimpan.
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Form per kriteria */}
-      {kriteriaList.map((kriteria) => {
-        if (kriteria.pembimbingOnly && !header.isPembimbing) return null;
-        return (
-          <View key={kriteria.title} style={styles.kriteriaCard}>
-            <View style={styles.kriteriaHeader}>
-              <Text style={styles.kriteriaTitle}>{kriteria.title}</Text>
-              <Text style={styles.kriteriaBobot}>{kriteria.bobot}%</Text>
-            </View>
-            {kriteria.fields.map((field) => (
-              <View key={String(field.key)} style={styles.fieldRow}>
-                <Text style={styles.fieldLabel}>{field.label}</Text>
-                <TextInput
-                  style={[styles.input, errors[field.key] ? styles.inputError : null]}
-                  value={values[field.key as string] ?? ''}
-                  onChangeText={(t) => setField(field.key as string, t)}
-                  keyboardType="numeric"
-                  placeholder="0–100"
-                  maxLength={6}
-                  editable={!submitting && !!header.periodeAktif}
-                />
-                {errors[field.key]?.map((msg, i) => (
-                  <Text key={i} style={styles.fieldError}>{msg}</Text>
-                ))}
-              </View>
-            ))}
-          </View>
-        );
-      })}
-
-      {/* Total preview */}
-      <View style={styles.totalCard}>
-        <Text style={styles.totalTitle}>Pratinjau Nilai Anda</Text>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Kriteria I</Text>
-          <Text style={styles.totalValue}>{totalPreview.k1.toFixed(2)}</Text>
-        </View>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Kriteria II</Text>
-          <Text style={styles.totalValue}>{totalPreview.k2.toFixed(2)}</Text>
-        </View>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Kriteria III</Text>
-          <Text style={styles.totalValue}>{totalPreview.k3.toFixed(2)}</Text>
-        </View>
-        {totalPreview.k4 !== null && (
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Kriteria IV</Text>
-            <Text style={styles.totalValue}>{totalPreview.k4.toFixed(2)}</Text>
-          </View>
-        )}
-        <View style={[styles.totalRow, styles.totalRowFinal]}>
-          <Text style={styles.totalLabelFinal}>Total Nilai</Text>
-          <Text style={styles.totalValueFinal}>{totalPreview.total.toFixed(2)}</Text>
-        </View>
-        <Text style={styles.totalNote}>
-          * Pratinjau hanya untuk penilai ini. Nilai akhir mahasiswa = rata-rata semua penilai.
-        </Text>
-      </View>
-
-      {/* Submit */}
-      <TouchableOpacity
-        style={[styles.submitBtn, (submitting || !header.periodeAktif) && styles.submitBtnDisabled]}
-        onPress={handleSubmit}
-        disabled={submitting || !header.periodeAktif}
+    <View style={styles.root}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
-        {submitting ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.submitBtnText}>
-            {header.editing ? 'Perbarui Nilai' : 'Simpan Nilai'}
+        {/* Hero header */}
+        <Surface elevation={0} style={styles.hero}>
+          <View style={styles.heroTop}>
+            <Text variant="labelSmall" style={styles.heroLabel}>
+              {isSidang ? 'PENILAIAN SIDANG TA' : 'PENILAIAN SEMINAR PROPOSAL'}
+            </Text>
+            {header.editing && (
+              <Surface elevation={0} style={styles.editChip}>
+                <Pencil size={12} color={palette.tertiary} strokeWidth={2.4} />
+                <Text variant="labelSmall" style={styles.editChipText}>
+                  Edit
+                </Text>
+              </Surface>
+            )}
+          </View>
+          <Text variant="titleLarge" style={styles.heroName}>
+            {header.mahasiswa}
           </Text>
-        )}
-      </TouchableOpacity>
+          <Text variant="bodySmall" style={styles.heroNim}>
+            NIM: {header.nim}
+          </Text>
+          {header.judul && (
+            <Text variant="bodySmall" style={styles.heroJudul} numberOfLines={3}>
+              {header.judul}
+            </Text>
+          )}
+          <Surface elevation={0} style={styles.roleBadge}>
+            <Award size={12} color="#fff" strokeWidth={2.4} />
+            <Text variant="labelSmall" style={styles.roleBadgeText}>
+              Anda sebagai {ROLE_LABEL[header.role]}
+            </Text>
+          </Surface>
+        </Surface>
 
-      <View style={{ height: 32 }} />
-    </ScrollView>
+        {/* Warning kalau periode tidak aktif */}
+        {!header.periodeAktif && (
+          <Surface elevation={0} style={styles.warnBanner}>
+            <TriangleAlert size={16} color={palette.warning} strokeWidth={2} />
+            <Text variant="bodySmall" style={styles.warnText}>
+              Periode {isSidang ? 'Sidang TA' : 'Seminar Proposal'} tidak aktif. Penilaian tidak dapat disimpan.
+            </Text>
+          </Surface>
+        )}
+
+        {/* Form per kriteria */}
+        {kriteriaList.map((kriteria) => {
+          if (kriteria.pembimbingOnly && !header.isPembimbing) return null;
+          return (
+            <Card key={kriteria.title} mode="elevated" style={styles.kriteriaCard}>
+              <Card.Content>
+                <View style={styles.kriteriaHeader}>
+                  <View style={styles.kriteriaTitleRow}>
+                    <FileText size={16} color={palette.primary} strokeWidth={2} />
+                    <Text variant="titleSmall" style={styles.kriteriaTitle}>
+                      {kriteria.title}
+                    </Text>
+                  </View>
+                  <Surface elevation={0} style={styles.bobotChip}>
+                    <Text variant="labelSmall" style={styles.bobotText}>
+                      {kriteria.bobot}%
+                    </Text>
+                  </Surface>
+                </View>
+                {kriteria.fields.map((field) => (
+                  <View key={String(field.key)} style={styles.fieldRow}>
+                    <TextInput
+                      mode="outlined"
+                      label={field.label}
+                      value={values[field.key as string] ?? ''}
+                      onChangeText={(t) => setField(field.key as string, t)}
+                      keyboardType="numeric"
+                      placeholder="0–100"
+                      maxLength={6}
+                      error={!!errors[field.key as string]}
+                      disabled={disabled}
+                      style={styles.input}
+                    />
+                    {errors[field.key as string] && (
+                      <HelperText type="error" visible>
+                        {errors[field.key as string][0]}
+                      </HelperText>
+                    )}
+                  </View>
+                ))}
+              </Card.Content>
+            </Card>
+          );
+        })}
+
+        {/* Total preview */}
+        <Card mode="elevated" style={styles.totalCard}>
+          <Card.Content>
+            <View style={styles.totalHeader}>
+              <CheckCircle2 size={18} color={palette.success} strokeWidth={2} />
+              <Text variant="titleSmall" style={styles.totalTitle}>
+                Pratinjau Nilai Anda
+              </Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text variant="bodyMedium" style={styles.totalLabel}>
+                Kriteria I
+              </Text>
+              <Text variant="bodyMedium" style={styles.totalValue}>
+                {totalPreview.k1.toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text variant="bodyMedium" style={styles.totalLabel}>
+                Kriteria II
+              </Text>
+              <Text variant="bodyMedium" style={styles.totalValue}>
+                {totalPreview.k2.toFixed(2)}
+              </Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text variant="bodyMedium" style={styles.totalLabel}>
+                Kriteria III
+              </Text>
+              <Text variant="bodyMedium" style={styles.totalValue}>
+                {totalPreview.k3.toFixed(2)}
+              </Text>
+            </View>
+            {totalPreview.k4 !== null && (
+              <View style={styles.totalRow}>
+                <Text variant="bodyMedium" style={styles.totalLabel}>
+                  Kriteria IV
+                </Text>
+                <Text variant="bodyMedium" style={styles.totalValue}>
+                  {totalPreview.k4.toFixed(2)}
+                </Text>
+              </View>
+            )}
+            <View style={styles.totalDivider} />
+            <View style={styles.totalRowFinal}>
+              <View style={styles.totalFinalLeft}>
+                <GraduationCap size={18} color={palette.primary} strokeWidth={2} />
+                <Text variant="titleMedium" style={styles.totalLabelFinal}>
+                  Total Nilai
+                </Text>
+              </View>
+              <Text variant="headlineSmall" style={styles.totalValueFinal}>
+                {totalPreview.total.toFixed(2)}
+              </Text>
+            </View>
+            <Text variant="labelSmall" style={styles.totalNote}>
+              Pratinjau hanya untuk penilai ini. Nilai akhir mahasiswa = rata-rata semua penilai.
+            </Text>
+          </Card.Content>
+        </Card>
+      </ScrollView>
+
+      {/* Submit sticky bottom */}
+      <Surface elevation={3} style={styles.submitBar}>
+        <Button
+          mode="contained"
+          onPress={handleSubmit}
+          loading={submitting}
+          disabled={disabled}
+          icon={({ size, color }) => <Save size={size} color={color} strokeWidth={2} />}
+          style={styles.submitBtn}
+          contentStyle={styles.submitContent}
+        >
+          {header.editing ? 'Perbarui Nilai' : 'Simpan Nilai'}
+        </Button>
+      </Surface>
+
+      <Snackbar
+        visible={snack.visible}
+        onDismiss={() => setSnack((s) => ({ ...s, visible: false }))}
+        duration={2500}
+        style={{ backgroundColor: snack.variant === 'success' ? palette.success : palette.error }}
+      >
+        {snack.message}
+      </Snackbar>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FA' },
+  root: { flex: 1, backgroundColor: palette.background },
+  container: { flex: 1 },
+  scrollContent: { paddingBottom: 100 },
 
-  headerCard: {
-    backgroundColor: '#0066CC',
-    margin: 16,
-    marginBottom: 12,
-    padding: 18,
-    borderRadius: 12,
+  hero: {
+    backgroundColor: palette.primary,
+    padding: 20,
+    paddingBottom: 28,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
-  headerType: { color: '#BBDEFB', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  headerName: { color: '#fff', fontSize: 18, fontWeight: '700', marginTop: 6 },
-  headerNim: { color: '#E3F2FD', fontSize: 13, marginTop: 2 },
-  headerJudul: { color: '#fff', fontSize: 13, marginTop: 8, lineHeight: 18, fontStyle: 'italic' },
-  roleRow: { flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' },
+  heroTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  heroLabel: {
+    color: 'rgba(255,255,255,0.85)',
+    letterSpacing: 0.8,
+    fontWeight: '700',
+  },
+  editChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: palette.tertiaryContainer,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  editChipText: { color: palette.tertiary, fontWeight: '700' },
+  heroName: { color: '#fff', fontWeight: '700' },
+  heroNim: { color: 'rgba(255,255,255,0.85)', marginTop: 2 },
+  heroJudul: { color: 'rgba(255,255,255,0.92)', marginTop: 10, lineHeight: 18, fontStyle: 'italic' },
   roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: 'rgba(255,255,255,0.2)',
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  roleBadgeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
-  editBadge: { backgroundColor: '#FFB300' },
-  editBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  warnBox: {
+    paddingVertical: 5,
+    borderRadius: 999,
+    alignSelf: 'flex-start',
     marginTop: 12,
-    padding: 10,
-    backgroundColor: '#FFF3E0',
-    borderRadius: 8,
   },
-  warnText: { color: '#E65100', fontSize: 12, fontWeight: '600' },
+  roleBadgeText: { color: '#fff', fontWeight: '700' },
+
+  warnBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    margin: 16,
+    marginTop: 12,
+    marginBottom: 0,
+    padding: 12,
+    backgroundColor: palette.warningContainer,
+    borderRadius: 10,
+  },
+  warnText: { color: '#92400e', flex: 1, lineHeight: 19 },
 
   kriteriaCard: {
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginTop: 12,
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
   },
   kriteriaHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingBottom: 8,
+    marginBottom: 14,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: palette.outlineVariant,
   },
-  kriteriaTitle: { fontSize: 14, fontWeight: '700', color: '#333', flex: 1 },
-  kriteriaBobot: { fontSize: 12, fontWeight: '700', color: '#0066CC', backgroundColor: '#E3F2FD', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  kriteriaTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  kriteriaTitle: { color: palette.onSurface, fontWeight: '700', flex: 1 },
+  bobotChip: {
+    backgroundColor: palette.primaryContainer,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  bobotText: { color: palette.primary, fontWeight: '800' },
 
-  fieldRow: { marginBottom: 12 },
-  fieldLabel: { fontSize: 13, color: '#555', marginBottom: 6, fontWeight: '500' },
-  input: {
-    backgroundColor: '#F5F7FA',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  inputError: { borderColor: '#CC0000', backgroundColor: '#FFEBEE' },
-  fieldError: { color: '#CC0000', fontSize: 11, marginTop: 4 },
+  fieldRow: { marginBottom: 6 },
+  input: { backgroundColor: '#fff' },
 
   totalCard: {
     marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: '#FAFAFA',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    marginTop: 12,
+    marginBottom: 12,
+    backgroundColor: '#fff',
   },
-  totalTitle: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 10 },
+  totalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 14,
+  },
+  totalTitle: { color: palette.onSurface, fontWeight: '700' },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 6,
   },
-  totalLabel: { fontSize: 13, color: '#666' },
-  totalValue: { fontSize: 13, color: '#333', fontWeight: '600' },
-  totalRowFinal: {
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+  totalLabel: { color: palette.onSurfaceVariant },
+  totalValue: { color: palette.onSurface, fontWeight: '700' },
+  totalDivider: {
+    height: 1,
+    backgroundColor: palette.outlineVariant,
+    marginTop: 10,
+    marginBottom: 14,
   },
-  totalLabelFinal: { fontSize: 14, color: '#0066CC', fontWeight: '700' },
-  totalValueFinal: { fontSize: 18, color: '#0066CC', fontWeight: '800' },
-  totalNote: { fontSize: 11, color: '#999', marginTop: 8, fontStyle: 'italic' },
-
-  submitBtn: {
-    marginHorizontal: 16,
-    backgroundColor: '#0066CC',
-    paddingVertical: 16,
-    borderRadius: 12,
+  totalRowFinal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  submitBtnDisabled: { backgroundColor: '#9E9E9E' },
-  submitBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  totalFinalLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  totalLabelFinal: { color: palette.primary, fontWeight: '800' },
+  totalValueFinal: { color: palette.primary, fontWeight: '800' },
+  totalNote: {
+    color: palette.onSurfaceVariant,
+    marginTop: 12,
+    fontStyle: 'italic',
+    lineHeight: 16,
+  },
+
+  submitBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: palette.outlineVariant,
+  },
+  submitBtn: { borderRadius: 12 },
+  submitContent: { paddingVertical: 6 },
 });

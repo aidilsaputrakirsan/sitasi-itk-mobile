@@ -115,8 +115,8 @@ export function AppNavigator() {
           <Stack.Screen name="PengajuanTA" component={PengajuanTAScreen} options={{ title: 'Pengajuan TA' }} />
           <Stack.Screen name="PengajuanTADetail" component={PengajuanTADetailScreen} options={{ title: 'Detail Pengajuan' }} />
           <Stack.Screen name="PengajuanTAForm" component={PengajuanTAFormScreen} options={{ title: 'Form Pengajuan TA' }} />
-          <Stack.Screen name="Sempro" component={SemproScreen} options={{ title: 'Seminar Proposal' }} />
-          <Stack.Screen name="Sidang" component={SidangScreen} options={{ title: 'Sidang TA' }} />
+          <Stack.Screen name="Sempro" component={SemproScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Sidang" component={SidangScreen} options={{ headerShown: false }} />
 
           {/* Dosen */}
           <Stack.Screen name="BimbinganDosen" component={BimbinganDosenScreen} options={{ title: 'Bimbingan Mahasiswa' }} />

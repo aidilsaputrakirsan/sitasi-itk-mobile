@@ -265,6 +265,8 @@ export interface Sidang {
   revisi_pembimbing_2?: string | null;
   revisi_penguji_1?: string | null;
   revisi_penguji_2?: string | null;
+  approve_pembimbing_1?: string | null;
+  approve_pembimbing_2?: string | null;
   lembar_revisi?: string;
   draft_ta?: string;
   bukti_plagiasi?: string;
@@ -410,6 +412,12 @@ export interface PenilaianListItemSidang extends Sidang {
   my_role: PenilaianRole;
   my_role_label: string;
   is_pembimbing: boolean;
+  /** Apakah mahasiswa sudah punya record SidangTA (false = belum daftar) */
+  has_sidang?: boolean;
+  /** ID PengajuanTA, dipakai sebagai key kalau has_sidang=false */
+  pengajuan_id?: number;
+  /** Judul TA dari PengajuanTA (selalu ada) */
+  judul?: string;
 }
 
 // ==================== Periode ====================

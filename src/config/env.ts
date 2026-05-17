@@ -21,8 +21,13 @@ const PROD_API_URL =
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+const API_BASE_URL = __DEV__ ? DEV_API_URL : PROD_API_URL;
+
 const config = {
-  API_BASE_URL: __DEV__ ? DEV_API_URL : PROD_API_URL,
+  API_BASE_URL,
+
+  /** Root web SITASI (untuk membuka halaman web di browser dari mobile) */
+  WEB_BASE_URL: API_BASE_URL.replace(/\/api\/v1\/?$/, ''),
 
   /** Auto-refresh token jika sisa waktu < 1 jam */
   TOKEN_REFRESH_THRESHOLD_MS: 60 * 60 * 1000,
